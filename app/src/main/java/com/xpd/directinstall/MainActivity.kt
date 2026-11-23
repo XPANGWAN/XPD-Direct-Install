@@ -34,67 +34,107 @@ class MainActivity : Activity() {
  @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; @Volatile private var paused=false; @Volatile private var ps5ReceiverBusy=false; private val retryEntries=mutableListOf<PkgEntry>(); private val expandedFamilies=mutableSetOf<String>(); private var filterRole="ALL"
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();server=TransferRuntime.server;stopServerButton.isEnabled=server!=null;if(server!=null)serverInfo.text="Local file server active on port 9898.";restoreState();if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),9098)}
  private fun buildUi(){
-  val root=LinearLayout(this).apply{orientation=1;setPadding(20,22,20,20);setBackgroundColor(bg)}
-  val scroll=ScrollView(this).apply{clipToPadding=false;isFillViewport=true}
+  val root=LinearLayout(this).apply{orientation=1;setPadding(dp(18),dp(16),dp(18),dp(18));setBackgroundColor(bg)}
+  val scroll=ScrollView(this).apply{clipToPadding=false;isFillViewport=true;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS}
   val body=LinearLayout(this).apply{orientation=1}
   val brand=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
   val mark=ImageView(this).apply{setImageResource(R.drawable.xpd_wolf_mark);scaleType=ImageView.ScaleType.FIT_CENTER}
-  brand.addView(mark,LinearLayout.LayoutParams(dp(66),dp(66)).apply{rightMargin=dp(14)})
+  brand.addView(mark,lp(dp(54),dp(54)).apply{rightMargin=dp(12)})
   val brandText=LinearLayout(this).apply{orientation=1}
-  brandText.addView(label("XPD",30f,Color.WHITE).apply{typeface=android.graphics.Typeface.create("sans-serif-black",android.graphics.Typeface.BOLD);letterSpacing=.10f})
-  brandText.addView(label("DIRECT INSTALL",13f,silver).apply{letterSpacing=.22f})
-  brandText.addView(label("ANDROID PKG SENDER  •  v0.9.3",10f,muted).apply{letterSpacing=.08f;setPadding(1,5,0,0)})
+  brandText.addView(label("XPD",27f,Color.WHITE).apply{typeface=android.graphics.Typeface.create("sans-serif-black",android.graphics.Typeface.BOLD);letterSpacing=.10f})
+  brandText.addView(label("DIRECT INSTALL",12f,silver).apply{letterSpacing=.20f})
   brand.addView(brandText,LinearLayout.LayoutParams(0,-2,1f))
-  body.addView(brand,lp(-1,dp(82)).apply{bottomMargin=dp(22)})
-  body.addView(sectionHeader("1. CONNECT YOUR PLAYSTATION"))
+  brand.addView(label("v0.9.3",10f,muted))
+  body.addView(brand,lp(-1,dp(64)).apply{bottomMargin=dp(20)})
+
+  body.addView(label("Send games to your PlayStation",21f,Color.WHITE).apply{typeface=android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL);setPadding(0,0,0,dp(5))})
+  body.addView(label("Connect, choose your PKG files, then send.",12f,muted).apply{setPadding(0,0,0,dp(20))})
+
+  body.addView(sectionHeader("01  •  CONNECT"))
   val connection=card()
-  connection.addView(label("Connect your console to the same Wi-Fi",12f,muted).apply{letterSpacing=.10f},lp(-1,22))
+  connection.addView(label("PlayStation address",14f,silver).apply{typeface=android.graphics.Typeface.DEFAULT_BOLD},lp(-1,dp(24)))
+  connection.addView(label("Your phone and console must use the same Wi-Fi network.",11f,muted).apply{setPadding(0,dp(3),0,dp(12))})
   ip=field("192.168.1.XX",false).apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL}
-  connection.addView(label("PLAYSTATION IP ADDRESS",12f,muted),lp(-1,20));connection.addView(ip,lp(-1,52).apply{bottomMargin=12})
-  port=field("12800",true).apply{setText("12800")};connection.addView(label("PORT",12f,muted),lp(-1,20));connection.addView(port,lp(-1,52))
-  connection.addView(button("FIND MY PLAYSTATION"){discoverConsole()},lp(-1,48).apply{topMargin=12})
-  check=button("TEST CONNECTION"){checkReceiver()};connection.addView(check,lp(-1,50).apply{topMargin=8})
-  connection.addView(label("Usually, keep the port at 12800.",11f,muted).apply{setPadding(2,12,2,0)})
-  connection.addView(label("PS5 setup port",11f,muted).apply{setPadding(2,dp(12),2,0)})
+  port=field("12800",true).apply{setText("12800")}
+  val addressRow=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
+  val ipCol=LinearLayout(this).apply{orientation=1}
+  ipCol.addView(label("IP ADDRESS",10f,muted).apply{setPadding(0,0,0,dp(6))})
+  ipCol.addView(ip,lp(-1,dp(50)))
+  addressRow.addView(ipCol,LinearLayout.LayoutParams(0,-2,1f).apply{rightMargin=dp(8)})
+  val portCol=LinearLayout(this).apply{orientation=1}
+  portCol.addView(label("PORT",10f,muted).apply{setPadding(0,0,0,dp(6))})
+  portCol.addView(port,lp(-1,dp(50)))
+  addressRow.addView(portCol,LinearLayout.LayoutParams(dp(94),-2))
+  connection.addView(addressRow)
+  check=button("TEST CONNECTION"){checkReceiver()}
+  connection.addView(check,lp(-1,dp(48)).apply{topMargin=dp(12)})
+  connection.addView(button("FIND MY PLAYSTATION"){discoverConsole()},lp(-1,dp(44)).apply{topMargin=dp(8)})
+  val advancedToggle=button("PS5 RECEIVER SETUP  +"){ 
+   val show=ps5Advanced.visibility!=View.VISIBLE
+   ps5Advanced.visibility=if(show)View.VISIBLE else View.GONE
+   it@button
+  }
+  ps5Advanced=LinearLayout(this).apply{orientation=1;visibility=View.GONE}
+  ps5Advanced.addView(label("Open Payload Manager on your PS5 before setup.",11f,muted).apply{setPadding(0,dp(10),0,dp(6))})
   ps5WebPort=field("8084",true).apply{setText("8084")}
-  connection.addView(ps5WebPort,lp(-1,dp(48)).apply{topMargin=dp(6)})
-  installPs5ReceiverButton=button("SET UP PS5 RECEIVER",true){installPs5Receiver()}
-  connection.addView(installPs5ReceiverButton,lp(-1,dp(48)).apply{topMargin=dp(8)})
-  connection.addView(label("For PS5: open Payload Manager on your console, then tap this button.",11f,muted).apply{setPadding(2,dp(8),2,0)})
+  ps5Advanced.addView(label("PAYLOAD MANAGER PORT",10f,muted),lp(-1,dp(18)))
+  ps5Advanced.addView(ps5WebPort,lp(-1,dp(48)).apply{topMargin=dp(5)})
+  installPs5ReceiverButton=button("INSTALL PS5 RECEIVER",true){installPs5Receiver()}
+  ps5Advanced.addView(installPs5ReceiverButton,lp(-1,dp(48)).apply{topMargin=dp(8)})
+  connection.addView(advancedToggle,lp(-1,dp(40)).apply{topMargin=dp(10)})
+  connection.addView(ps5Advanced,lp(-1,-2))
   body.addView(connection,lp(-1,-2).apply{bottomMargin=dp(22)})
-  body.addView(sectionHeader("2. CHOOSE YOUR PKG FILES"))
+
+  body.addView(sectionHeader("02  •  SELECT PKG FILES"))
   val packages=card()
   val queueTop=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
-  queueTop.addView(label("YOUR SELECTED FILES",12f,silver).apply{letterSpacing=.12f},LinearLayout.LayoutParams(0,dp(24),1f))
-  clear=button("CLEAR"){if(!busy){files.clear();retryEntries.clear();served.clear();refreshQueue();saveState()}}.apply{isEnabled=!busy};queueTop.addView(clear,lp(dp(82),dp(34)))
+  val queueHeading=LinearLayout(this).apply{orientation=1}
+  queueHeading.addView(label("Your package queue",14f,silver).apply{typeface=android.graphics.Typeface.DEFAULT_BOLD})
+  queueHeading.addView(label("Add one or more PlayStation PKG files.",11f,muted).apply{setPadding(0,dp(3),0,0)})
+  queueTop.addView(queueHeading,LinearLayout.LayoutParams(0,-2,1f))
+  clear=button("CLEAR"){if(!busy){files.clear();retryEntries.clear();served.clear();refreshQueue();saveState()}}.apply{isEnabled=!busy}
+  queueTop.addView(clear,lp(dp(76),dp(36)))
   packages.addView(queueTop)
-  packages.addView(button("+  CHOOSE PKG FILES",true){chooseFiles()},lp(-1,dp(52)).apply{topMargin=dp(10)})
-  packages.addView(button("CHOOSE A FOLDER"){chooseFolder()},lp(-1,dp(46)).apply{topMargin=dp(8)})
-  fileInfo=label("No files yet. Choose your PKG files below.",12f,muted).apply{setPadding(2,dp(14),2,dp(8))};packages.addView(fileInfo)
-  queueSearch=field("Search your files",false).apply{addTextChangedListener(object:android.text.TextWatcher{
+  packages.addView(button("＋  CHOOSE PKG FILES",true){chooseFiles()},lp(-1,dp(52)).apply{topMargin=dp(14)})
+  packages.addView(button("CHOOSE A FOLDER INSTEAD"){chooseFolder()},lp(-1,dp(42)).apply{topMargin=dp(7)})
+  fileInfo=label("No files selected yet.",11f,muted).apply{setPadding(2,dp(13),2,dp(5))}
+  packages.addView(fileInfo)
+  queueSearch=field("Search by game, file or title ID",false).apply{addTextChangedListener(object:android.text.TextWatcher{
    override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){}
    override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){refreshQueue()}
    override fun afterTextChanged(s:android.text.Editable?){}
   })}
-  packages.addView(queueSearch,lp(-1,dp(44)).apply{topMargin=dp(6)})
+  packages.addView(queueSearch,lp(-1,dp(44)).apply{topMargin=dp(7)})
   val filterRow=LinearLayout(this).apply{orientation=0}
   listOf("ALL","BASE","UPDATE","DLC").forEach{tag->
-   filterRow.addView(button(tag,tag=="ALL"){filterRole=tag;refreshQueue()},LinearLayout.LayoutParams(0,dp(34),1f).apply{rightMargin=dp(4);topMargin=dp(7)})
+   filterRow.addView(button(tag,tag=="ALL"){filterRole=tag;refreshQueue()},LinearLayout.LayoutParams(0,dp(34),1f).apply{rightMargin=dp(4);topMargin=dp(8)})
   }
   packages.addView(filterRow)
-  queue=LinearLayout(this).apply{orientation=1};queue.addView(label("Choose one or more PKG files to build your queue.",11f,muted).apply{setPadding(2,dp(8),2,dp(8))});packages.addView(queue)
+  queue=LinearLayout(this).apply{orientation=1}
+  queue.addView(label("Your selected packages will appear here.",11f,muted).apply{setPadding(2,dp(12),2,dp(8))})
+  packages.addView(queue)
   body.addView(packages,lp(-1,-2).apply{bottomMargin=dp(22)})
-  body.addView(sectionHeader("3. SEND TO PLAYSTATION"))
+
+  body.addView(sectionHeader("03  •  SEND"))
   val transfer=card()
-  status=label("Ready. Choose your files to begin.",13f,silver).apply{setPadding(2,dp(4),2,dp(14))};transfer.addView(status)
-  send=button("SEND TO PLAYSTATION",true){sendFiles(false)}.apply{isEnabled=false};transfer.addView(send,lp(-1,dp(56)))
-  pauseButton=button("PAUSE"){togglePause()}.apply{isEnabled=false};transfer.addView(pauseButton,lp(-1,dp(44)).apply{topMargin=dp(8)})
-  retryButton=button("TRY AGAIN"){sendFiles(true)}.apply{isEnabled=false};transfer.addView(retryButton,lp(-1,dp(44)).apply{topMargin=dp(8)})
-  serverInfo=label("Phone connection service • Port 9898",11f,muted).apply{setPadding(2,dp(12),2,2)};transfer.addView(serverInfo)
-  stopServerButton=button("STOP SENDING"){stopTransferServer()}.apply{isEnabled=false};transfer.addView(stopServerButton,lp(-1,dp(42)).apply{topMargin=dp(8)})
-  body.addView(transfer,lp(-1,-2).apply{bottomMargin=dp(18)})
-  body.addView(label("Keep your phone and PlayStation on the same Wi-Fi. A message saying “accepted” means the console received the request; check the console to confirm installation.",11f,muted).apply{setPadding(4,4,4,22);gravity=Gravity.CENTER})
-  scroll.addView(body);root.addView(scroll);setContentView(root)
+  transfer.addView(label("Ready to install?",15f,silver).apply{typeface=android.graphics.Typeface.DEFAULT_BOLD})
+  status=label("Choose PKG files to get started.",12f,muted).apply{setPadding(0,dp(6),0,dp(14))}
+  transfer.addView(status)
+  send=button("SEND TO PLAYSTATION",true){sendFiles(false)}.apply{isEnabled=false}
+  transfer.addView(send,lp(-1,dp(54)))
+  pauseButton=button("PAUSE TRANSFER"){togglePause()}.apply{isEnabled=false}
+  transfer.addView(pauseButton,lp(-1,dp(42)).apply{topMargin=dp(8)})
+  retryButton=button("RETRY FAILED FILES"){sendFiles(true)}.apply{isEnabled=false}
+  transfer.addView(retryButton,lp(-1,dp(42)).apply{topMargin=dp(7)})
+  serverInfo=label("Phone file server • Port 9898",10f,muted).apply{setPadding(2,dp(12),2,dp(2))}
+  transfer.addView(serverInfo)
+  stopServerButton=button("STOP FILE SERVER"){stopTransferServer()}.apply{isEnabled=false}
+  transfer.addView(stopServerButton,lp(-1,dp(40)).apply{topMargin=dp(7)})
+  body.addView(transfer,lp(-1,-2).apply{bottomMargin=dp(14)})
+  body.addView(label("Keep your phone and PlayStation on the same Wi-Fi. Always check your console to confirm the installation.",10f,muted).apply{gravity=Gravity.CENTER;textAlignment=View.TEXT_ALIGNMENT_CENTER;setPadding(dp(8),dp(4),dp(8),dp(20))})
+  scroll.addView(body)
+  root.addView(scroll,lp(-1,-1))
+  setContentView(root)
  }
  private fun prefs()=getSharedPreferences("xpd_direct_install",MODE_PRIVATE)
  private fun restoreState(){
