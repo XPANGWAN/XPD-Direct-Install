@@ -33,9 +33,15 @@ class MainActivity : Activity() {
   val root=LinearLayout(this).apply{orientation=1;setPadding(20,22,20,20);setBackgroundColor(bg)}
   val scroll=ScrollView(this).apply{clipToPadding=false}
   val body=LinearLayout(this).apply{orientation=1}
-  body.addView(label("XPD",30f,Color.WHITE).apply{typeface=android.graphics.Typeface.create("sans-serif-black",android.graphics.Typeface.BOLD);letterSpacing=.10f})
-  body.addView(label("DIRECT INSTALL",13f,silver).apply{letterSpacing=.22f;setPadding(2,0,0,4)})
-  body.addView(label("PS4 PACKAGE TRANSFER",10f,muted).apply{letterSpacing=.16f;setPadding(2,5,0,22)})
+  val brand=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
+  val mark=ImageView(this).apply{setImageResource(R.drawable.xpd_wolf_mark);scaleType=ImageView.ScaleType.FIT_CENTER}
+  brand.addView(mark,LinearLayout.LayoutParams(dp(66),dp(66)).apply{rightMargin=dp(14)})
+  val brandText=LinearLayout(this).apply{orientation=1}
+  brandText.addView(label("XPD",30f,Color.WHITE).apply{typeface=android.graphics.Typeface.create("sans-serif-black",android.graphics.Typeface.BOLD);letterSpacing=.10f})
+  brandText.addView(label("DIRECT INSTALL",13f,silver).apply{letterSpacing=.22f})
+  brandText.addView(label("PS4 PKG SENDER  •  v0.5.0",10f,muted).apply{letterSpacing=.08f;setPadding(1,5,0,0)})
+  brand.addView(brandText,LinearLayout.LayoutParams(0,-2,1f))
+  body.addView(brand,lp(-1,dp(82)).apply{bottomMargin=dp(22)})
   body.addView(sectionHeader("01  /  CONSOLE CONNECTION"))
   val connection=card()
   ip=field("PS4 IP address",false);connection.addView(label("CONSOLE IP ADDRESS",10f,muted),lp(-1,20));connection.addView(ip,lp(-1,52).apply{bottomMargin=12})
@@ -98,6 +104,7 @@ class MainActivity : Activity() {
  }
  private fun label(s:String,n:Float,c:Int)=TextView(this).apply{text=s;textSize=n;setTextColor(c)}
  private fun title(s:String)=label(s,12f,silver).apply{letterSpacing=.08f}
+ private fun dp(v:Int)= (v*resources.displayMetrics.density).toInt()
  private fun lp(w:Int,h:Int)=LinearLayout.LayoutParams(w,h)
  private fun field(h:String,n:Boolean)=EditText(this).apply{hint=h;setHintTextColor(muted);setTextColor(Color.WHITE);textSize=14f;setSingleLine(true);setPadding(14,13,14,13);setBackgroundColor(panel);inputType=if(n)android.text.InputType.TYPE_CLASS_NUMBER else android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS}
  private fun button(s:String,primary:Boolean=false,action:()->Unit)=Button(this).apply{text=s;setTextColor(if(primary)Color.BLACK else silver);setBackgroundTintList(android.content.res.ColorStateList.valueOf(if(primary)silver else panel));setOnClickListener{action()}}
