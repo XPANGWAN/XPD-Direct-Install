@@ -74,7 +74,7 @@ object ConsoleDiscovery {
         if (goldhen != null && goldhen.replace(" ", "").contains("\"status\":\"ready\"", true)) {
             return ConsoleCandidate(ip, "GoldHEN Payload Server", 9090)
         }
-        for (port in intArrayOf(9021, 9020)) {
+        for (port in intArrayOf(9090, 9021, 9020)) {
             if (tcp(ip, port)) return ConsoleCandidate(ip, "GoldHEN Payload Server", port)
         }
         return null
