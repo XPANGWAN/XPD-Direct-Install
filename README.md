@@ -2,7 +2,7 @@
 
 Native Android PKG sender for a local PlayStation network. XPD is being rebuilt toward the workflow of PKG Sender while keeping Android-specific storage, network and lifecycle handling.
 
-## Current app status — 0.8.0
+## Current app status — 0.9.0
 
 - Native black-and-silver Android interface with separated console, package queue and transfer sections.
 - Reads PS4 CNT and PS5 FIH package signatures; it no longer rejects PS5 FIH files at selection.
@@ -10,13 +10,13 @@ Native Android PKG sender for a local PlayStation network. XPD is being rebuilt 
 - Extracts a package icon when it is present as a PNG entry.
 - Shows platform, title, version, Title ID, size and served progress in individual queue cards.
 - Uses Android's document picker without restrictive MIME filters.
-- Retains the existing PS4 RPI transfer path on port 12800.
+- Automatic local Wi-Fi discovery for RPI/PKG Receiver and GoldHEN endpoints (12800, 9090, 9021, 9020).\n- PS4 RPI sends one package request at a time to port 12800.\n- GoldHEN path includes the upstream MIT-licensed DPI payload, callback listener, PS4 package metadata struct and BGFT manifest endpoint on phone port 9898.\n- Phone file server on port 9898 supports GET, HEAD and byte ranges.
 
 ## Rebuild roadmap and current limits
 - PS4 RPI: basic install-request path exists; test against a real console is still required.
-- PS4 GoldHEN: status detection only; payload injection and callback/manifest flow are not yet implemented.
+- PS4 GoldHEN: payload injection and callback/manifest flow are implemented; requires testing with a real PS4/GoldHEN version and network setup.
 - PS5: package metadata parsing exists; the PS5 receiver payload and install workflow are not yet integrated.
-- Automatic LAN discovery, family grouping (base/update/DLC), queue pause/reorder/retry and background transfer service remain in development.
+- Family grouping (base/update/DLC), queue pause/reorder/retry and a true foreground background-transfer service remain in development.
 - A parsed PKG header does not guarantee that every encrypted, split, malformed or future package variant is fully supported.
 
 - Native Kotlin Android application with a black-and-silver interface.
