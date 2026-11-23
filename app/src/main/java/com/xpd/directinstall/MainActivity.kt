@@ -10,7 +10,6 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
-import android.util.Base64
 import androidx.documentfile.provider.DocumentFile
 import org.json.JSONArray
 import org.json.JSONObject
@@ -31,7 +30,7 @@ class MainActivity : Activity() {
  private var server:PkgHttpServer?=null; private lateinit var ip:EditText; private lateinit var port:EditText
  private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout; private lateinit var queueSearch:EditText
  private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var pauseButton:Button
- @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; @Volatile private var paused=false; @Volatile private var ps5ReceiverBusy=false; private val retryEntries=mutableListOf<PkgEntry>()
+ @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; @Volatile private var paused=false; private val retryEntries=mutableListOf<PkgEntry>()
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();server=TransferRuntime.server;restoreState();if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),9098)}
  private fun buildUi(){
   val root=LinearLayout(this).apply{
@@ -227,7 +226,7 @@ class MainActivity : Activity() {
    val found=ConsoleDiscovery.scan(this){message->runOnUiThread{status.text=message}}
    runOnUiThread{
     when{
-     found.isEmpty()->status.text="No compatible receiver found. Confirm that the PS4/PS5 receiver is running on the same Wi-Fi."
+     found.isEmpty()->status.text="No compatible receiver found. Confirm that Remote Package Installer or GoldHEN is running on the PS4."
      found.size==1->{ip.setText(found[0].address);port.setText(found[0].port.toString());status.text="Found ${found[0].service} at ${found[0].address}:${found[0].port}. Check the connection before sending."}
      else->{ip.setText(found[0].address);port.setText(found[0].port.toString());status.text="Found ${found.size} possible receivers. Selected ${found[0].address} (${found[0].service}); verify before sending."}
     }
@@ -258,7 +257,7 @@ class MainActivity : Activity() {
    if(kind=="GoldHEN"&&body.contains("status")&&body.contains("ready"))
     "GoldHEN status endpoint is ready on 9090. The payload installer is available; a real console test is still required."
    else if(kind=="RPI"&&(body.contains("Unsupported method",true)&&body.contains("fail",true)))
-    "PKG receiver detected on port $p (PS4 RPI / PS5 receiver). "
+    "PS4 Remote Package Installer detected on port $p. "
    else "Port $p responded (HTTP $code), but $kind was not confirmed."
   }catch(e:Exception){"No $kind response on $p: "+(e.message?:"connection failed")}finally{conn?.disconnect()}
  }
