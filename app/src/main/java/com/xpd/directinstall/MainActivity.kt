@@ -19,6 +19,7 @@ import java.net.NetworkInterface
 import java.net.URL
 import java.util.Collections
 import java.util.Locale
+import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
 
 class MainActivity : Activity() {
@@ -219,10 +220,13 @@ class MainActivity : Activity() {
   if(files.any{it.metadata?.platform=="PS5"}){status.text="PS5 PKG metadata is supported, but PS5 receiver installation is not enabled in this build.";return}
   if(goldHen&&files.any{it.metadata?.platform!="PS4"}){status.text="GoldHEN installation currently accepts PS4 PKG files only.";return}
   val local=localIp(host)?:run{status.text="Could not find a phone IPv4 address on the same LAN as the console.";return}
-  val s=PkgHttpServer(contentResolver,9898,files.toList(),publicHost=local,onBytes={id,n->
-   served.compute(id){_,old->((old?:0L)+n).let{v->val size=files.firstOrNull{it.id==id}?.size?:-1L;if(size>0)v.coerceAtMost(size)else v}}
-   runOnUiThread{refreshQueue()}
-  },onServerError={m->runOnUiThread{status.text=m}})
+  val activityRef=WeakReference(this)
+  val queueSnapshot=files.toList()
+  val servedCounts=served
+  val s=PkgHttpServer(contentResolver,9898,queueSnapshot,publicHost=local,onBytes={id,n->
+   servedCounts.compute(id){_,old->((old?:0L)+n).let{v->val size=queueSnapshot.firstOrNull{it.id==id}?.size?:-1L;if(size>0)v.coerceAtMost(size)else v}}
+   activityRef.get()?.runOnUiThread{activityRef.get()?.refreshQueue()}
+  },onServerError={m->activityRef.get()?.runOnUiThread{activityRef.get()?.status?.text=m}})
   TransferRuntime.server?.stop();TransferRuntime.server=null;server?.stop();server=null
   if(!s.start()){status.text="Could not start local HTTP server on port 9898.";return}
   server=s;TransferRuntime.server=s;stopServerButton.isEnabled=true
