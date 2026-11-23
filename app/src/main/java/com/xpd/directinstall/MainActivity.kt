@@ -276,6 +276,7 @@ class MainActivity : Activity() {
        val body=JSONObject().put("type","direct").put("packages",JSONArray().put(fileUrl))
        val title=entry.metadata?.displayTitle?.takeIf{it.isNotBlank()}
        if(title!=null)body.put("name",title)
+       if(entry.metadata?.iconPng!=null)body.put("icon_url","http://$local:9898/icon/${entry.id}")
        c=URL("http://$host:12800/api/install").openConnection() as HttpURLConnection
        c.requestMethod="POST";c.connectTimeout=10000;c.readTimeout=15000;c.doOutput=true
        c.setRequestProperty("Content-Type","application/json")
