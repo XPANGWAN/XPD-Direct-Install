@@ -25,7 +25,7 @@ class MainActivity : Activity() {
  private val panel=Color.rgb(27,29,34); private val bg=Color.rgb(12,13,16)
  private val files=mutableListOf<PkgEntry>(); private val served=ConcurrentHashMap<String,Long>()
  private var server:PkgHttpServer?=null; private lateinit var ip:EditText; private lateinit var port:EditText
- private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:TextView
+ private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout
  private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var serverInfo:TextView
  private var busy=false
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();restoreState()}
@@ -39,7 +39,7 @@ class MainActivity : Activity() {
   val brandText=LinearLayout(this).apply{orientation=1}
   brandText.addView(label("XPD",30f,Color.WHITE).apply{typeface=android.graphics.Typeface.create("sans-serif-black",android.graphics.Typeface.BOLD);letterSpacing=.10f})
   brandText.addView(label("DIRECT INSTALL",13f,silver).apply{letterSpacing=.22f})
-  brandText.addView(label("PS4 PKG SENDER  •  v0.6.1",10f,muted).apply{letterSpacing=.08f;setPadding(1,5,0,0)})
+  brandText.addView(label("ANDROID PKG SENDER  •  v0.7.0",10f,muted).apply{letterSpacing=.08f;setPadding(1,5,0,0)})
   brand.addView(brandText,LinearLayout.LayoutParams(0,-2,1f))
   body.addView(brand,lp(-1,dp(82)).apply{bottomMargin=dp(22)})
   body.addView(sectionHeader("01  /  CONSOLE"))
@@ -59,7 +59,7 @@ class MainActivity : Activity() {
   packages.addView(queueTop)
   packages.addView(button("＋   ADD PKG FILES",true){chooseFiles()},lp(-1,dp(52)).apply{topMargin=dp(10)})
   fileInfo=label("No packages selected",12f,muted).apply{setPadding(2,dp(14),2,dp(8))};packages.addView(fileInfo)
-  queue=label("Choose one or more PKG files to build your queue.",11f,muted).apply{setPadding(2,dp(4),2,dp(4))};packages.addView(queue)
+  queue=LinearLayout(this).apply{orientation=1};queue.addView(label("Choose one or more PKG files to build your queue.",11f,muted).apply{setPadding(2,dp(8),2,dp(8))});packages.addView(queue)
   body.addView(packages,lp(-1,-2).apply{bottomMargin=dp(22)})
   body.addView(sectionHeader("03  /  SEND TO CONSOLE"))
   val transfer=card()
@@ -113,7 +113,7 @@ class MainActivity : Activity() {
  private fun lp(w:Int,h:Int)=LinearLayout.LayoutParams(w,h)
  private fun field(h:String,n:Boolean)=EditText(this).apply{hint=h;setHintTextColor(muted);setTextColor(Color.WHITE);textSize=14f;setSingleLine(true);setPadding(14,13,14,13);setBackgroundColor(panel);inputType=if(n)android.text.InputType.TYPE_CLASS_NUMBER else android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS}
  private fun button(s:String,primary:Boolean=false,action:()->Unit)=Button(this).apply{text=s;setTextColor(if(primary)Color.BLACK else silver);setBackgroundTintList(android.content.res.ColorStateList.valueOf(if(primary)silver else panel));setOnClickListener{action()}}
- private fun chooseFiles(){if(busy)return;val i=Intent(Intent.ACTION_OPEN_DOCUMENT).apply{addCategory(Intent.CATEGORY_OPENABLE);type="*/*";putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);putExtra(Intent.EXTRA_MIME_TYPES,arrayOf("application/vnd.playstation.pkg","application/octet-stream","application/x-pkg"))};startActivityForResult(i,41)}
+ private fun chooseFiles(){if(busy)return;val i=Intent(Intent.ACTION_OPEN_DOCUMENT).apply{addCategory(Intent.CATEGORY_OPENABLE);type="*/*";putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true)};startActivityForResult(i,41)}
  private fun validIp(s:String)=s.matches(Regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"))&&s.split(".").all{it.toIntOrNull()?.let { n -> n in 0..255 } == true}
  private fun checkReceiver(){
   val host=ip.text.toString().trim();val p=port.text.toString().toIntOrNull()
@@ -171,7 +171,15 @@ class MainActivity : Activity() {
  }
  private fun refreshQueue(){
   fileInfo.text=if(files.isEmpty())"No packages selected" else "${files.size} package(s) selected"
-  queue.text=if(files.isEmpty())"Your selected packages will appear here." else files.mapIndexed{i,f->val n=served[f.id]?:0L;val pct=if(f.size>0)(n*100/f.size).coerceIn(0,100)else 0;"${i+1}. ${f.name}\n   ${sizeText(f.size)} • served: $pct%"}.joinToString("\n\n")
+  queue.removeAllViews()
+  if(files.isEmpty()){queue.addView(label("Your selected packages will appear here.",11f,muted).apply{setPadding(2,dp(8),2,dp(8))})}
+  files.forEachIndexed{i,f->
+   val row=LinearLayout(this).apply{orientation=1;setPadding(dp(12),dp(10),dp(12),dp(10));background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(19,21,25));cornerRadius=dp(12).toFloat();setStroke(1,Color.rgb(45,48,55))}}
+   row.addView(label("${i+1}.  ${f.name}",13f,silver).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END})
+   val n=served[f.id]?:0L;val pct=if(f.size>0)(n*100/f.size).coerceIn(0,100)else 0
+   row.addView(label("${sizeText(f.size)}   •   sent ${pct}%",10f,muted).apply{setPadding(0,dp(5),0,0)})
+   queue.addView(row,lp(-1,-2).apply{topMargin=dp(7)})
+  }
   send.isEnabled=files.isNotEmpty()&&!busy;clear.isEnabled=!busy
  }
  private fun sizeText(n:Long):String{if(n<0)return "Size unknown";val mb=n/1048576.0;return if(mb>=1024)String.format(Locale.US,"%.2f GB",mb/1024)else String.format(Locale.US,"%.1f MB",mb)}
@@ -188,12 +196,25 @@ class MainActivity : Activity() {
  private fun displayPkgName(name:String)=if(name.lowercase(Locale.ROOT).endsWith(".pkg"))name else name+".pkg"
  private fun isValidPkg(u:Uri):Boolean {
   return try {
-   val size=packageSize(u);if(size in 0L until 256L)return false
-   contentResolver.openInputStream(u)?.use { stream ->
-    val magic=ByteArray(4);var offset=0
-    while(offset<4){val n=stream.read(magic,offset,4-offset);if(n<=0)return false;offset+=n}
-    magic[0]==0x7f.toByte()&&magic[1]==0x43.toByte()&&magic[2]==0x4e.toByte()&&magic[3]==0x54.toByte()
-   }?:false
+   val size=packageSize(u)
+   if(size>=0L&&size<4L)return false
+   val magic=ByteArray(4)
+   val read=try {
+    contentResolver.openFileDescriptor(u,"r")?.use { pfd ->
+     android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd).use { stream ->
+      var offset=0
+      while(offset<magic.size){val n=stream.read(magic,offset,magic.size-offset);if(n<=0)break;offset+=n}
+      offset
+     }
+    }?:0
+   } catch(_:Exception) {
+    contentResolver.openInputStream(u)?.use { stream ->
+     var offset=0
+     while(offset<magic.size){val n=stream.read(magic,offset,magic.size-offset);if(n<=0)break;offset+=n}
+     offset
+    }?:0
+   }
+   read==4&&magic[0]==0x7f.toByte()&&magic[1]==0x43.toByte()&&magic[2]==0x4e.toByte()&&magic[3]==0x54.toByte()
   }catch(_:Exception){false}
  }
  private fun packageSize(u:Uri):Long { val column=query(u,OpenableColumns.SIZE)?.toLongOrNull(); if(column!=null&&column>=0)return column; return try{contentResolver.openFileDescriptor(u,"r")?.use{it.statSize}?:-1L}catch(_:Exception){-1L} }
