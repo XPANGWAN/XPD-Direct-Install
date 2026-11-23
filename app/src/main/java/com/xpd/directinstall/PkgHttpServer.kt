@@ -112,7 +112,7 @@ class PkgHttpServer(
             entry.size >= (256L shl 20) -> 2
             else -> 1
         }
-        val url = "http://$publicHost:$port/pkg/\${entry.id}"
+        val url = "http://$publicHost:$port/pkg/${entry.id}"
         val json = StringBuilder()
             .append("{\"originalFileSize\":").append(entry.size)
             .append(",\"packageDigest\":\"").append(meta.digest).append('"')
@@ -129,7 +129,7 @@ class PkgHttpServer(
         }
         json.append("]}")
         val bytes = json.toString().toByteArray(Charsets.UTF_8)
-        val header = "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: \${bytes.size}\r\nConnection: close\r\n\r\n"
+        val header = "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n"
         output.write(header.toByteArray(Charsets.US_ASCII))
         if (!head) output.write(bytes)
         output.flush()
