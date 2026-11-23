@@ -60,6 +60,7 @@ class MainActivity : Activity() {
   connection.addView(ps5WebPort,lp(-1,dp(48)).apply{topMargin=dp(6)})
   installPs5ReceiverButton=button("INSTALL PS5 RECEIVER",true){installPs5Receiver()}
   connection.addView(installPs5ReceiverButton,lp(-1,dp(48)).apply{topMargin=dp(8)})
+  connection.addView(label("PS5 setup: start Payload Manager on the console, then deploy the receiver here. Package receiver port: 12800.",10f,muted).apply{setPadding(2,dp(8),2,0)})
   body.addView(connection,lp(-1,-2).apply{bottomMargin=dp(22)})
   body.addView(sectionHeader("02  /  YOUR PACKAGES"))
   val packages=card()
