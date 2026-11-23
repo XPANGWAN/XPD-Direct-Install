@@ -25,6 +25,7 @@ class TransferForegroundService : Service() {
         if (intent?.action == ACTION_STOP) {
             TransferRuntime.server?.stop()
             TransferRuntime.server = null
+            releaseWakeLock()
             if (Build.VERSION.SDK_INT >= 24) stopForeground(STOP_FOREGROUND_REMOVE) else {
                 @Suppress("DEPRECATION")
                 stopForeground(true)
@@ -39,12 +40,14 @@ class TransferForegroundService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+        acquireWakeLock()
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
         TransferRuntime.server?.stop()
         TransferRuntime.server = null
+        releaseWakeLock()
         super.onDestroy()
     }
 
