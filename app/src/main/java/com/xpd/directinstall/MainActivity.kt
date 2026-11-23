@@ -44,7 +44,7 @@ class MainActivity : Activity() {
   body.addView(brand,lp(-1,dp(82)).apply{bottomMargin=dp(22)})
   body.addView(sectionHeader("01  /  CONSOLE"))
   val connection=card()
-  connection.addView(label("PLAYSTATION 4  •  LOCAL NETWORK",10f,muted).apply{letterSpacing=.10f},lp(-1,22))
+  connection.addView(label("PLAYSTATION CONSOLE  •  LOCAL NETWORK",10f,muted).apply{letterSpacing=.10f},lp(-1,22))
   ip=field("192.168.1.XX",false).apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL}
   connection.addView(label("CONSOLE IP ADDRESS",10f,muted),lp(-1,20));connection.addView(ip,lp(-1,52).apply{bottomMargin=12})
   port=field("12800",true).apply{setText("12800")};connection.addView(label("RECEIVER PORT",10f,muted),lp(-1,20));connection.addView(port,lp(-1,52))
@@ -136,14 +136,15 @@ class MainActivity : Activity() {
   if(p==null||p !in 1..65535){status.text="Enter a valid port.";return}
   check.isEnabled=false;status.text="Checking PS4 receiver…"
   Thread{
-   val result=if(p==9090){
-    probeHttp(host,9090,"/status","GoldHEN")
-   }else{
-    probeHttp(host,p,"/api","RPI")
+   val result=when(p){
+    9090->probeHttp(host,9090,"/status","GoldHEN")
+    9021,9020->if(probeTcp(host,p))"GoldHEN binloader reachable on port $p. Ready for payload transfer." else "No GoldHEN binloader response on port $p."
+    else->probeHttp(host,p,"/api","RPI")
    }
    runOnUiThread{status.text=result;check.isEnabled=true}
   }.start()
  }
+ private fun probeTcp(host:String,p:Int):Boolean{return try{java.net.Socket().use{it.connect(java.net.InetSocketAddress(host,p),2500);true}}catch(_:Exception){false}}
  private fun probeHttp(host:String,p:Int,path:String,kind:String):String{
   var conn:HttpURLConnection?=null
   return try{
@@ -167,9 +168,9 @@ class MainActivity : Activity() {
   if(p==null||p !in 1..65535){status.text="Enter a valid receiver port.";return}
   val goldHen=p==9090||p==9021||p==9020
   if(!goldHen&&p!=12800){status.text="Use RPI port 12800 or a GoldHEN binloader port (9090, 9021 or 9020).";return}
-  if(goldHen&&files.any{it.metadata?.platform!="PS4"}){status.text="GoldHEN installation currently accepts PS4 PKG files only.";return}
+  if(files.any{it.metadata?.platform=="PS5"}){status.text="PS5 PKG metadata is supported, but PS5 receiver installation is not enabled in this build.";return}\n  if(goldHen&&files.any{it.metadata?.platform!="PS4"}){status.text="GoldHEN installation currently accepts PS4 PKG files only.";return}
   val local=localIp(host)?:run{status.text="Could not find a phone IPv4 address on the same LAN as the console.";return}
-  val s=PkgHttpServer(contentResolver,8080,files.toList(),publicHost=local,onBytes={id,n->
+  val s=PkgHttpServer(contentResolver,9898,files.toList(),publicHost=local,onBytes={id,n->
    served.compute(id){_,old->((old?:0L)+n).let{v->val size=files.firstOrNull{it.id==id}?.size?:-1L;if(size>0)v.coerceAtMost(size)else v}}
    runOnUiThread{refreshQueue()}
   },onServerError={m->runOnUiThread{status.text=m}})
@@ -177,7 +178,7 @@ class MainActivity : Activity() {
   if(!s.start()){status.text="Could not start local HTTP server on port 8080.";return}
   server=s
   window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-  serverInfo.text="Phone file server: http://$local:8080/  •  Keep XPD open"
+  serverInfo.text="Phone file server: http://$local:9898/  •  Keep XPD open"
   busy=true;send.isEnabled=false;clear.isEnabled=false
   status.text=if(goldHen)"Preparing GoldHEN installer…" else "Submitting packages to Remote Package Installer…"
   Thread{
@@ -186,13 +187,13 @@ class MainActivity : Activity() {
     for((index,entry) in files.withIndex()){
      runOnUiThread{status.text="Sending ${index+1}/${files.size}: ${entry.metadata?.displayTitle?:entry.name}"}
      if(goldHen){
-      val result=GoldHenInstaller.install(this,host,local,entry,8080)
+      val result=GoldHenInstaller.install(this,host,local,entry,9898)
       if(!result.success){message="Package ${index+1} failed: ${result.message}";break}
       message=result.message
      }else{
       var c:HttpURLConnection?=null
       val result=try{
-       val fileUrl="http://$local:8080/pkg/${entry.id}"
+       val fileUrl="http://$local:9898/pkg/${entry.id}"
        val body=JSONObject().put("type","direct").put("packages",JSONArray().put(fileUrl))
        val title=entry.metadata?.displayTitle?.takeIf{it.isNotBlank()}
        if(title!=null)body.put("name",title)
@@ -279,7 +280,7 @@ class MainActivity : Activity() {
  }
  private fun displayPkgName(name:String)=if(name.lowercase(Locale.ROOT).endsWith(".pkg"))name else name+".pkg"
  private fun isValidPkg(u:Uri):Boolean = PkgMetadataReader.hasPkgMagic(contentResolver,u)
- private fun packageSize(u:Uri):Long { val column=query(u,OpenableColumns.SIZE)?.toLongOrNull(); if(column!=null&&column>=0)return column; return try{contentResolver.openFileDescriptor(u,"r")?.use{it.statSize}?:-1L}catch(_:Exception){-1L} }
+ private fun packageSize(u:Uri):Long { val column=query(u,OpenableColumns.SIZE)?.toLongOrNull(); if(column!=null&&column>=0)return column; return try{contentResolver.openFileDescriptor(u,"r")?.use{pfd->pfd.statSize.takeIf{it>=0L}?:android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd).use{it.channel.size()}}?:-1L}catch(_:Exception){-1L} }
  private fun query(u:Uri,col:String):String?{var c:Cursor?=null;return try{c=contentResolver.query(u,arrayOf(col),null,null,null);if(c!=null&&c.moveToFirst()){val i=c.getColumnIndex(col);if(i>=0&&!c.isNull(i))c.getString(i)else null}else null}catch(_:Exception){null}finally{c?.close()}}
  override fun onDestroy(){server?.stop();window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);super.onDestroy()}
 }
