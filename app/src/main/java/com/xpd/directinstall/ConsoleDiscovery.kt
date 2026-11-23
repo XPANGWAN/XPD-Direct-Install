@@ -65,7 +65,7 @@ object ConsoleDiscovery {
     private fun probe(ip: String): ConsoleCandidate? {
         val rpi = http(ip, 12800, "/api")
         if (rpi != null && (rpi.contains("Unsupported method", true) && rpi.contains("fail", true))) {
-            return ConsoleCandidate(ip, "PKG Receiver (PS4 RPI / PS5)", 12800)
+            return ConsoleCandidate(ip, "PS4 Remote Package Installer", 12800)
         }
         if (rpi != null && rpi.isNotBlank()) {
             return ConsoleCandidate(ip, "PKG Receiver", 12800)
