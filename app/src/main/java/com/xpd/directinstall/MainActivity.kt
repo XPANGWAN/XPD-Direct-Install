@@ -482,8 +482,6 @@ class MainActivity : Activity() {
      }.apply{textSize=10f;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_more,0,0,0);compoundDrawablePadding=dp(4)}
      row.addView(options,lp(-1,dp(32)).apply{topMargin=dp(7)})
      queue.addView(row,lp(-1,-2).apply{topMargin=dp(7)})
-    }
-   }
   }
   send.text=if(retryEntries.isNotEmpty())"RETRY" else "SEND"
   send.setCompoundDrawablesWithIntrinsicBounds(if(retryEntries.isNotEmpty())R.drawable.ic_retry else R.drawable.ic_send,0,0,0)
