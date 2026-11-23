@@ -69,15 +69,7 @@ object ConsoleDiscovery {
         }
         if (rpi != null && rpi.isNotBlank()) {
             return ConsoleCandidate(ip, "PKG Receiver", 12800)
-        }
-        val goldhen = http(ip, 9090, "/status")
-        if (goldhen != null && goldhen.replace(" ", "").contains("\"status\":\"ready\"", true)) {
-            return ConsoleCandidate(ip, "GoldHEN Payload Server", 9090)
-        }
-        for (port in intArrayOf(9090, 9021, 9020)) {
-            if (tcp(ip, port)) return ConsoleCandidate(ip, "GoldHEN Payload Server", port)
-        }
-        return null
+        }        return null
     }
 
     private fun http(ip: String, port: Int, path: String): String? {
