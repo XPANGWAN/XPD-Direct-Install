@@ -29,7 +29,7 @@ class MainActivity : Activity() {
  private val panel=Color.rgb(27,29,34); private val bg=Color.rgb(12,13,16)
  private val files=mutableListOf<PkgEntry>(); private val served=ConcurrentHashMap<String,Long>(); private val progressViews=ConcurrentHashMap<String,ProgressBar>(); private val progressLabels=ConcurrentHashMap<String,TextView>()
  private var server:PkgHttpServer?=null; private lateinit var ip:EditText; private lateinit var port:EditText
- private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout; private lateinit var queueSearch:EditText
+ private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout; private lateinit var queueSearch:EditText; private lateinit var ps5Advanced:LinearLayout
  private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var stopServerButton:Button; private lateinit var pauseButton:Button; private lateinit var retryButton:Button; private lateinit var ps5WebPort:EditText; private lateinit var installPs5ReceiverButton:Button; private lateinit var serverInfo:TextView
  @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; @Volatile private var paused=false; @Volatile private var ps5ReceiverBusy=false; private val retryEntries=mutableListOf<PkgEntry>(); private val expandedFamilies=mutableSetOf<String>(); private var filterRole="ALL"
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();server=TransferRuntime.server;stopServerButton.isEnabled=server!=null;if(server!=null)serverInfo.text="Local file server active on port 9898.";restoreState();if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),9098)}
@@ -69,10 +69,9 @@ class MainActivity : Activity() {
   check=button("TEST CONNECTION"){checkReceiver()}
   connection.addView(check,lp(-1,dp(48)).apply{topMargin=dp(12)})
   connection.addView(button("FIND MY PLAYSTATION"){discoverConsole()},lp(-1,dp(44)).apply{topMargin=dp(8)})
-  val advancedToggle=button("PS5 RECEIVER SETUP  +"){ 
+  val advancedToggle=button("PS5 RECEIVER SETUP  +"){
    val show=ps5Advanced.visibility!=View.VISIBLE
    ps5Advanced.visibility=if(show)View.VISIBLE else View.GONE
-   it@button
   }
   ps5Advanced=LinearLayout(this).apply{orientation=1;visibility=View.GONE}
   ps5Advanced.addView(label("Open Payload Manager on your PS5 before setup.",11f,muted).apply{setPadding(0,dp(10),0,dp(6))})
