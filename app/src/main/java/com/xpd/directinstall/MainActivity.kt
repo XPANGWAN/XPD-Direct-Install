@@ -27,9 +27,9 @@ class MainActivity : Activity() {
  private val files=mutableListOf<PkgEntry>(); private val served=ConcurrentHashMap<String,Long>()
  private var server:PkgHttpServer?=null; private lateinit var ip:EditText; private lateinit var port:EditText
  private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout
- private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var serverInfo:TextView
+ private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var stopServerButton:Button; private lateinit var serverInfo:TextView
  private var busy=false
- override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();restoreState()}
+ override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();server=TransferRuntime.server;stopServerButton.isEnabled=server!=null;restoreState()}
  private fun buildUi(){
   val root=LinearLayout(this).apply{orientation=1;setPadding(20,22,20,20);setBackgroundColor(bg)}
   val scroll=ScrollView(this).apply{clipToPadding=false;isFillViewport=true}
@@ -69,6 +69,7 @@ class MainActivity : Activity() {
   status=label("READY  •  Select PKG files to begin.",12f,silver).apply{setPadding(2,dp(4),2,dp(14))};transfer.addView(status)
   send=button("START TRANSFER",true){sendFiles()}.apply{isEnabled=false};transfer.addView(send,lp(-1,dp(56)))
   serverInfo=label("Local phone server  •  Port 9898",10f,muted).apply{setPadding(2,dp(12),2,2)};transfer.addView(serverInfo)
+  stopServerButton=button("STOP FILE SERVER"){stopTransferServer()}.apply{isEnabled=false};transfer.addView(stopServerButton,lp(-1,dp(42)).apply{topMargin=dp(8)})
   body.addView(transfer,lp(-1,-2).apply{bottomMargin=dp(18)})
   body.addView(label("Both devices must be connected to the same Wi-Fi network. Keep XPD open while the PS4 downloads the selected files. A successful request means accepted by the receiver, not confirmed installation.",10f,muted).apply{setPadding(4,4,4,22);gravity=Gravity.CENTER})
   scroll.addView(body);root.addView(scroll);setContentView(root)
@@ -222,14 +223,14 @@ class MainActivity : Activity() {
    served.compute(id){_,old->((old?:0L)+n).let{v->val size=files.firstOrNull{it.id==id}?.size?:-1L;if(size>0)v.coerceAtMost(size)else v}}
    runOnUiThread{refreshQueue()}
   },onServerError={m->runOnUiThread{status.text=m}})
-  server?.stop();server=null
+  TransferRuntime.server?.stop();TransferRuntime.server=null;server?.stop();server=null
   if(!s.start()){status.text="Could not start local HTTP server on port 9898.";return}
-  server=s
+  server=s;TransferRuntime.server=s;stopServerButton.isEnabled=true
   try{
    val serviceIntent=Intent(this,TransferForegroundService::class.java).setAction(TransferForegroundService.ACTION_START)
    if(android.os.Build.VERSION.SDK_INT>=26)startForegroundService(serviceIntent)else startService(serviceIntent)
   }catch(e:Exception){
-   s.stop();server=null;status.text="Could not start transfer service: ${e.message?: "service error"}";return
+   s.stop();server=null;TransferRuntime.server=null;stopServerButton.isEnabled=false;status.text="Could not start transfer service: ${e.message?: "service error"}";return
   }
   window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
   serverInfo.text="Phone file server: http://$local:9898/  •  Keep XPD open"
@@ -274,6 +275,16 @@ class MainActivity : Activity() {
     clear.isEnabled=true
    }
   }.start()
+ }
+ private fun stopTransferServer(){
+  try{startService(Intent(this,TransferForegroundService::class.java).setAction(TransferForegroundService.ACTION_STOP))}catch(_:Exception){
+   TransferRuntime.server?.stop();TransferRuntime.server=null
+  }
+  server=null
+  stopServerButton.isEnabled=false
+  window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+  serverInfo.text="Local file server stopped."
+  status.text="Transfer server stopped by user."
  }
  private fun localIp(targetIp:String?=null):String? {
   return try {
@@ -351,5 +362,5 @@ class MainActivity : Activity() {
  private fun isValidPkg(u:Uri):Boolean = PkgMetadataReader.hasPkgMagic(contentResolver,u)
  private fun packageSize(u:Uri):Long { val column=query(u,OpenableColumns.SIZE)?.toLongOrNull(); if(column!=null&&column>=0)return column; return try{contentResolver.openFileDescriptor(u,"r")?.use{pfd->pfd.statSize.takeIf{it>=0L}?:android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd).use{it.channel.size()}}?:-1L}catch(_:Exception){-1L} }
  private fun query(u:Uri,col:String):String?{var c:Cursor?=null;return try{c=contentResolver.query(u,arrayOf(col),null,null,null);if(c!=null&&c.moveToFirst()){val i=c.getColumnIndex(col);if(i>=0&&!c.isNull(i))c.getString(i)else null}else null}catch(_:Exception){null}finally{c?.close()}}
- override fun onDestroy(){server?.stop();stopService(Intent(this,TransferForegroundService::class.java));window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);super.onDestroy()}
+ override fun onDestroy(){window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);super.onDestroy()}
 }
