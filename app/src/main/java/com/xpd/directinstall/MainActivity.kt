@@ -21,6 +21,7 @@ import java.util.Collections
 import java.util.Locale
 import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 class MainActivity : Activity() {
  private val silver=Color.rgb(205,210,218); private val muted=Color.rgb(145,151,160)
@@ -237,9 +238,14 @@ class MainActivity : Activity() {
   val activityRef=WeakReference(this)
   val queueSnapshot=files.toList()
   val servedCounts=served
+  val lastUiRefresh=AtomicLong(0L)
   val s=PkgHttpServer(contentResolver,9898,queueSnapshot,publicHost=local,onBytes={id,n->
    servedCounts.compute(id){_,old->((old?:0L)+n).let{v->val size=queueSnapshot.firstOrNull{it.id==id}?.size?:-1L;if(size>0)v.coerceAtMost(size)else v}}
-   activityRef.get()?.runOnUiThread{activityRef.get()?.refreshQueue()}
+   val now=android.os.SystemClock.uptimeMillis()
+   val previous=lastUiRefresh.get()
+   if(now-previous>=300&&lastUiRefresh.compareAndSet(previous,now)){
+    activityRef.get()?.runOnUiThread{activityRef.get()?.refreshQueue()}
+   }
   },onServerError={m->activityRef.get()?.runOnUiThread{activityRef.get()?.status?.text=m}})
   TransferRuntime.server?.stop();TransferRuntime.server=null;server?.stop();server=null
   if(!s.start()){status.text="Could not start local HTTP server on port 9898.";return}
