@@ -343,7 +343,7 @@ class MainActivity : Activity() {
      upload.outputStream.use{it.write(elf);it.flush()}
      val code=upload.responseCode
      val body=(if(code in 200..299)upload.inputStream else upload.errorStream)?.bufferedReader()?.use{it.readText()}?:""
-     if(code !in 200..299||!body.contains("OK",true))throw IllegalStateException("Receiver upload failed (HTTP $code): $body")
+     if(code !in 200..299||!body.trim().startsWith("OK",true))throw IllegalStateException("Receiver upload failed (HTTP $code): $body")
     }finally{upload.disconnect()}
     val launch=URL("http://$host:$webPort/loadpayload:pkg-receiver.elf").openConnection() as HttpURLConnection
     try{
