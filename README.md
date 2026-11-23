@@ -2,15 +2,17 @@
 
 Native Android application for sending PlayStation 4 PKG files over a local network.
 
-## Current implementation — 0.9.5
+## Current implementation — 0.9.6
 
 - Native black-and-silver interface with XPD wolf mark.
 - Add individual PS4 PKG files or recursively scan a selected folder.
 - Validate PS4 CNT package headers and read package metadata where available.
 - Search package titles, filenames, Title IDs and Content IDs.
 - Pause/resume between package submissions and retry failed or pending transfers.
-- Discover PS4 Remote Package Installer on the local Wi-Fi network.
-- Send PS4 PKG files through Remote Package Installer on port 12800.
+- Discover GoldHEN BinLoader on port 9090 first, with Remote Package Installer fallback.
+- Send PS4 package metadata to the bundled GPL-3.0 DirectPackageInstaller installer payload through GoldHEN BinLoader on port 9090.
+- Keep the phone HTTP file server on port 9898 available while the PS4 BGFT service downloads each PKG.
+- Retain the Remote Package Installer HTTP path on port 12800 as a fallback.
 - Local phone HTTP server on port 9898 supports GET, HEAD and byte-range requests.
 - Foreground data-sync service keeps the local file server available while the console downloads.
 - Selected file URIs and console settings are persisted when Android grants access.
@@ -26,15 +28,15 @@ Native Android application for sending PlayStation 4 PKG files over a local netw
 
 ## Port separation
 
-- `12800` is the Remote Package Installer HTTP interface. XPD sends the package URL and metadata to its `/api/install` endpoint.
-- `9090` is GoldHEN's BinLoader socket. It accepts a compatible binary payload; it is not an HTTP package-install endpoint and must not receive a raw `.pkg` file.
-- Detecting an open BinLoader socket does not prove that a compatible XPD installer payload is loaded or that package installation is available.
-- XPD currently does not ship an original PS4 installer payload, so the supported package-transfer path remains a separately running RPI receiver on port `12800`.
+- `9090` is GoldHEN BinLoader. XPD sends the bundled PS4 installer payload to this TCP port, then the payload connects back to the phone's temporary metadata service. XPD supplies each package URL, title, content ID, type, size, and optional icon. The PS4 BGFT service registers the download and fetches the PKG from the phone's HTTP server on port `9898`.
+- `12800` is the Remote Package Installer HTTP interface. XPD retains it as a fallback when GoldHEN BinLoader is unavailable.
+- The PKG file itself is never sent raw to port `9090`.
+- The bundled installer payload is from DirectPackageInstaller under GPL-3.0. Its source provenance and license are documented in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and the license text is included in [licenses/GPL-3.0.txt](licenses/GPL-3.0.txt).
 
 ## Architecture
 
-XPD uses the PS4 Remote Package Installer HTTP interface directly. It no longer bundles or injects a third-party PS4 or PS5 payload. A compatible RPI receiver must already be running on the PS4.
-
+The Android-side XPD bridge serves selected PS4 PKG files over local HTTP with byte-range support. The GoldHEN payload receives the package metadata over a separate local TCP service and registers each download with the PS4 BGFT service. The Android app also retains its independent RPI `12800` transfer route.
+ 
 ## Build
 
 The Android Actions workflow builds a debug APK on every push to main. Download the `xpd-direct-install-debug-apk` artifact from a successful run.
