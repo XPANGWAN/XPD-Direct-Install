@@ -131,13 +131,15 @@ class MainActivity : Activity() {
  private fun field(h:String,n:Boolean)=EditText(this).apply{hint=h;setHintTextColor(muted);setTextColor(Color.WHITE);textSize=14f;setSingleLine(true);setPadding(14,13,14,13);setBackgroundColor(panel);inputType=if(n)android.text.InputType.TYPE_CLASS_NUMBER else android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS}
  private fun button(s:String,primary:Boolean=false,action:()->Unit)=Button(this).apply{text=s;setTextColor(if(primary)Color.BLACK else silver);setBackgroundTintList(android.content.res.ColorStateList.valueOf(if(primary)silver else panel));setOnClickListener{action()}}
  private fun chooseFolder(){
-  if(busy)return
+  if(busy||scanning)return
   val intent=Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply{
    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
   }
   startActivityForResult(intent,42)
  }
  private fun scanFolder(treeUri:Uri){
+  if(busy||scanning)return
+  scanning=true;send.isEnabled=false
   status.text="Scanning folder for PlayStation .pkg files…"
   Thread{
    val discovered=mutableListOf<PkgEntry>()
@@ -170,7 +172,7 @@ class MainActivity : Activity() {
       files.add(entry.copy(id=java.util.UUID.randomUUID().toString()));added++
      }
     }
-    refreshQueue();saveState()
+    scanning=false;refreshQueue();saveState()
     status.text=if(added>0)"Folder scan complete: $added PKG file(s) added from $inspected candidate(s)." else "No new valid .pkg files found in this folder ($inspected candidates checked)."
    }
   }.start()
@@ -221,6 +223,7 @@ class MainActivity : Activity() {
  }
  private fun sendFiles(){
   if(busy)return
+  if(scanning){status.text="Wait for the folder scan to finish.";return}
   if(files.isEmpty()){status.text="Add at least one .pkg file.";return}
   val host=ip.text.toString().trim()
   val p=port.text.toString().toIntOrNull()
