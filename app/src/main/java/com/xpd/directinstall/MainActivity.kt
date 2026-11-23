@@ -39,9 +39,9 @@ class MainActivity : Activity() {
   body.addView(sectionHeader("01  /  CONSOLE CONNECTION"))
   val connection=card()
   ip=field("PS4 IP address",false);connection.addView(label("CONSOLE IP ADDRESS",10f,muted),lp(-1,20));connection.addView(ip,lp(-1,52).apply{bottomMargin=12})
-  port=field("9090",true).apply{setText("9090")};connection.addView(label("REMOTE INSTALLER PORT",10f,muted),lp(-1,20));connection.addView(port,lp(-1,52))
+  port=field("12800",true).apply{setText("12800")};connection.addView(label("REMOTE INSTALLER PORT",10f,muted),lp(-1,20));connection.addView(port,lp(-1,52))
   check=button("TEST CONNECTION"){checkReceiver()};connection.addView(check,lp(-1,50).apply{topMargin=14})
-  connection.addView(label("Use the port configured by the receiver on your PS4. Default here: 9090.",10f,muted).apply{setPadding(2,10,2,0)})
+  connection.addView(label("Use the port configured by the receiver on your PS4. RPI uses 12800. GoldHEN uses a different payload protocol on 9090.",10f,muted).apply{setPadding(2,10,2,0)})
   body.addView(connection,lp(-1,-2).apply{bottomMargin=22})
   body.addView(sectionHeader("02  /  PACKAGE QUEUE"))
   val packages=card()
@@ -73,16 +73,31 @@ class MainActivity : Activity() {
  private fun validIp(s:String)=s.matches(Regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"))&&s.split(".").all{it.toIntOrNull()?.let { n -> n in 0..255 } == true}
  private fun checkReceiver(){
   val host=ip.text.toString().trim();val p=port.text.toString().toIntOrNull()
-  if(!validIp(host)){status.text="Enter a valid PS4 IPv4 address.";return};if(p==null||p !in 1..65535){status.text="Enter a valid port.";return}
-  check.isEnabled=false;status.text="Checking Remote Package Installer…"
-  Thread{var c:HttpURLConnection?=null;val msg=try{
-   c=URL("http://$host:$p/api/is_exists").openConnection() as HttpURLConnection;c.requestMethod="POST";c.connectTimeout=5000;c.readTimeout=5000;c.doOutput=true;c.setRequestProperty("Content-Type","application/json")
-   c.outputStream.use{it.write(JSONObject().put("title_id","CUSA00000").toString().toByteArray())}
-   val code=c.responseCode;val body=(if(code in 200..299)c.inputStream else c.errorStream)?.bufferedReader()?.use{it.readText()}?:""
-   if(code in 200..299)"Remote installer API responded (HTTP $code).\n$body" else "PS4 returned HTTP $code. Check receiver app."
-  }catch(e:Exception){"Connection failed. Check IP, port, Wi-Fi and receiver app. "+(e.message?:"")}finally{c?.disconnect()}
-  runOnUiThread{status.text=msg;check.isEnabled=true}
+  if(!validIp(host)){status.text="Enter a valid PS4 IPv4 address.";return}
+  if(p==null||p !in 1..65535){status.text="Enter a valid port.";return}
+  check.isEnabled=false;status.text="Checking PS4 receiver…"
+  Thread{
+   val result=if(p==9090){
+    probeHttp(host,9090,"/status","GoldHEN")
+   }else{
+    probeHttp(host,p,"/api","RPI")
+   }
+   runOnUiThread{status.text=result;check.isEnabled=true}
   }.start()
+ }
+ private fun probeHttp(host:String,p:Int,path:String,kind:String):String{
+  var conn:HttpURLConnection?=null
+  return try{
+   conn=URL("http://$host:$p$path").openConnection() as HttpURLConnection
+   conn.requestMethod="GET";conn.connectTimeout=4000;conn.readTimeout=4000
+   val code=conn.responseCode
+   val body=(if(code in 200..299)conn.inputStream else conn.errorStream)?.bufferedReader()?.use{it.readText()}?:""
+   if(kind=="GoldHEN"&&body.replace(" ","").contains("\\"status\\":\\"ready\\""))
+    "GoldHEN detected on 9090. Online; this build does not yet include the GoldHEN installer payload."
+   else if(kind=="RPI"&&(body.contains("Unsupported method",true)||body.contains("\\"fail\\"")||code in 200..299))
+    "RPI detected on port $p."
+   else "Port $p responded (HTTP $code), but $kind was not confirmed."
+  }catch(e:Exception){"No $kind response on $p: "+(e.message?:"connection failed")}finally{conn?.disconnect()}
  }
  private fun sendFiles(){
   if(busy)return;if(files.isEmpty()){status.text="Add at least one .pkg file.";return}
