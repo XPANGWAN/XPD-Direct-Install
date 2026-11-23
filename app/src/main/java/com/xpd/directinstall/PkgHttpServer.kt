@@ -102,8 +102,14 @@ class PkgHttpServer(
         var start = 0L
         var end = size - 1
         var partial = false
-        if (rangeHeader != null && rangeHeader.startsWith("bytes=")) {
-            val spec = rangeHeader.removePrefix("bytes=").substringBefore(',')
+        if (rangeHeader != null && rangeHeader.startsWith("bytes=", ignoreCase = true)) {
+            val rawSpec = rangeHeader.substringAfter('=').trim()
+            if (rawSpec.contains(',')) {
+                output.write(("HTTP/1.1 416 Range Not Satisfiable\r\nContent-Range: bytes */$size\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").toByteArray())
+                output.flush()
+                return
+            }
+            val spec = rawSpec
             val dash = spec.indexOf('-')
             if (dash < 0 || size == 0L) {
                 respond(output, 416, "Range Not Satisfiable", "")
@@ -139,7 +145,7 @@ class PkgHttpServer(
             .append("Content-Type: application/octet-stream\r\n")
             .append("Accept-Ranges: bytes\r\n")
             .append("Content-Length: ").append(length).append("\r\n")
-            .append("Content-Disposition: attachment; filename=\"").append(entry.name.replace("\"", "")).append("\"\r\n")
+            .append("Content-Disposition: attachment; filename=\"").append(safeFileName(entry.name)).append("\"\r\n")
             .append("Connection: close\r\n")
         if (partial) header.append("Content-Range: bytes ").append(start).append("-").append(end).append("/").append(size).append("\r\n")
         header.append("\r\n")
@@ -172,6 +178,12 @@ class PkgHttpServer(
         } catch (e: Exception) {
             onServerError("Serving ${entry.name}: ${e.message ?: "read error"}")
         }
+    }
+
+    private fun safeFileName(value: String): String {
+        val cleaned = value.replace("\r", "").replace("\n", "").replace("\\", "_").replace("\"", "")
+            .map { if (it.code in 32..126) it else '_' }.joinToString("").take(180)
+        return cleaned.ifBlank { "package.pkg" }
     }
 
     private fun respond(out: OutputStream, code: Int, reason: String, body: String) {
