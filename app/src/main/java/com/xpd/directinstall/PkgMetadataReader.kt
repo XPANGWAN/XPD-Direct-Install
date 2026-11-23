@@ -8,8 +8,6 @@ import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
-import java.nio.charset.Charset
-import java.util.Locale
 
 /**
  * Read-only PS4/PS5 package metadata reader.
