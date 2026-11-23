@@ -2,7 +2,9 @@
 
 ## PS4 DPI GoldHEN installer payload
 
-The file `app/src/main/assets/ps4_dpi_payload.bin.b64` contains the `ps4_dpi_payload.bin` binary from [Loopayeh/pkg-sender](https://github.com/Loopayeh/pkg-sender), commit source `main` at the time of import. The binary is distributed under the MIT License. It is used unmodified; XPD's runtime patches only the callback address and port marker in memory before sending it to the console.\n\nXPD's Kotlin PKG metadata reader and GoldHEN manifest/callback integration were implemented independently after consulting the upstream project's `PkgInfo.cs` and `Ps4Installer.cs` behavior. No upstream C# source file was copied. The upstream project is credited here and its MIT notice is retained.
+The file `app/src/main/assets/ps4_dpi_payload.bin.b64` contains the `ps4_dpi_payload.bin` binary from [Loopayeh/pkg-sender](https://github.com/Loopayeh/pkg-sender), commit source `main` at the time of import. The binary is distributed under the MIT License. It is used unmodified; XPD's runtime patches only the callback address and port marker in memory before sending it to the console.
+
+XPD's Kotlin PKG metadata reader and GoldHEN manifest/callback integration were implemented independently after consulting the upstream project's `PkgInfo.cs` and `Ps4Installer.cs` behavior. No upstream C# source file was copied. The upstream project is credited here and its MIT notice is retained.
 
 MIT License
 
