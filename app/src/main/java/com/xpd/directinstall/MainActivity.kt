@@ -175,7 +175,7 @@ class MainActivity : Activity() {
    runOnUiThread{refreshQueue()}
   },onServerError={m->runOnUiThread{status.text=m}})
   server?.stop();server=null
-  if(!s.start()){status.text="Could not start local HTTP server on port 8080.";return}
+  if(!s.start()){status.text="Could not start local HTTP server on port 9898.";return}
   server=s
   window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
   serverInfo.text="Phone file server: http://$local:9898/  •  Keep XPD open"
