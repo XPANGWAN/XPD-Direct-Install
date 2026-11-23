@@ -84,6 +84,9 @@ object GoldHenInstaller {
                     return GoldHenResult(false, "Payload was sent, but the PS4 did not call back. Check that the phone and PS4 can reach each other on the same LAN.")
                 }
                 callback.use { client ->
+                    if (client.inetAddress.hostAddress != consoleIp) {
+                        return GoldHenResult(false, "Callback came from an unexpected LAN device.")
+                    }
                     client.tcpNoDelay = true
                     val title = (meta.title.ifBlank { meta.titleId }).toByteArray(Charsets.UTF_8)
                     val contentId = meta.contentId.toByteArray(Charsets.UTF_8)
@@ -118,12 +121,14 @@ object GoldHenInstaller {
 
     private fun connectBinloader(ip: String): Socket? {
         for (port in intArrayOf(9090, 9021, 9020)) {
+            val socket = Socket()
             try {
-                val socket = Socket()
                 socket.connect(InetSocketAddress(ip, port), 3000)
                 socket.soTimeout = 5000
                 return socket
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                try { socket.close() } catch (_: Exception) { }
+            }
         }
         return null
     }
