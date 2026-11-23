@@ -295,8 +295,12 @@ class MainActivity : Activity() {
   val queueSnapshot=queueToSend
   val servedCounts=served
   val lastUiRefresh=AtomicLong(0L)
+  val cleanupTriggered=AtomicLong(0L)
   val s=PkgHttpServer(contentResolver,9898,queueSnapshot,publicHost=local,onBytes={id,n->
    servedCounts.compute(id){_,old->((old?:0L)+n).let{v->val size=queueSnapshot.firstOrNull{it.id==id}?.size?:-1L;if(size>0)v.coerceAtMost(size)else v}}
+   if(queueSnapshot.all{entry->entry.size>0L&&(servedCounts[entry.id]?:0L)>=entry.size}&&cleanupTriggered.compareAndSet(0L,1L)){
+    activityRef.get()?.runOnUiThread{activityRef.get()?.stopLocalFileServer()}
+   }
    val now=android.os.SystemClock.uptimeMillis()
    val previous=lastUiRefresh.get()
    if(now-previous>=200&&lastUiRefresh.compareAndSet(previous,now)){
@@ -358,6 +362,13 @@ class MainActivity : Activity() {
     refreshQueue()
    }
   }.start()
+ }
+ private fun stopLocalFileServer(){
+  TransferRuntime.server?.stop();TransferRuntime.server=null;server=null
+  try{startService(Intent(this,TransferForegroundService::class.java).setAction(TransferForegroundService.ACTION_STOP))}catch(_:Exception){}
+  window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+  status.text="All selected PKG files were delivered to the console."
+  refreshQueue()
  }
  private fun stopTransferServer(){
   transferCancelled=true;paused=false
