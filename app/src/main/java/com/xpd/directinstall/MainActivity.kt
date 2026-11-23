@@ -156,10 +156,10 @@ class MainActivity : Activity() {
    val discovered=mutableListOf<PkgEntry>()
    var inspected=0
    fun walk(folder:DocumentFile,depth:Int){
-    if(depth>12||discovered.size>=2000)return
+    if(depth>12||discovered.size>=2000||inspected>=10000)return
     val children=try{folder.listFiles()}catch(_:Exception){emptyArray()}
     for(child in children){
-     if(discovered.size>=2000)break
+     if(discovered.size>=2000||inspected>=10000)break
      if(child.isDirectory){walk(child,depth+1)}
      else{
       val name=child.name?:continue
