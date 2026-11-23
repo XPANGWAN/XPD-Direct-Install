@@ -125,7 +125,7 @@ class MainActivity : Activity() {
   root.addView(status,lp(-1,-2).apply{topMargin=dp(8)})
   pauseButton=button("",false){togglePause()}.apply{contentDescription="Pause transfer";visibility=View.GONE;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_pause,0,0,0)}
   root.addView(pauseButton,lp(dp(48),dp(42)).apply{gravity=Gravity.CENTER_HORIZONTAL;topMargin=dp(6)})
-  val copyright=label("© XPANGWAN  •  XPD DIRECT INSTALL",9f,muted).apply{gravity=Gravity.CENTER;setPadding(0,dp(8),0,0)}
+  val copyright=label("© XPANGWAN  •  github.com/XPANGWAN",9f,muted).apply{gravity=Gravity.CENTER;setPadding(0,dp(8),0,0)}
   copyright.setOnClickListener{try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/XPANGWAN/XPD-Direct-Install")))}catch(_:Exception){}}
   root.addView(copyright,lp(-1,dp(28)))
   setContentView(root)
@@ -477,7 +477,7 @@ class MainActivity : Activity() {
        true
       }
       popup.show()
-     }.apply{textSize=10f}
+     }.apply{textSize=10f;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_more,0,0,0);compoundDrawablePadding=dp(4)}
      row.addView(options,lp(-1,dp(32)).apply{topMargin=dp(7)})
      queue.addView(row,lp(-1,-2).apply{topMargin=dp(7)})
     }
