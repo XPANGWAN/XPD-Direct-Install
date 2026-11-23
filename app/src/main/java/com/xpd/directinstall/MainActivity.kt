@@ -65,7 +65,7 @@ class MainActivity : Activity() {
   val packages=card()
   val queueTop=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
   queueTop.addView(label("TRANSFER QUEUE",10f,silver).apply{letterSpacing=.12f},LinearLayout.LayoutParams(0,dp(24),1f))
-  clear=button("CLEAR"){if(!busy){files.clear();served.clear();refreshQueue();saveState()}}.apply{isEnabled=!busy};queueTop.addView(clear,lp(dp(82),dp(34)))
+  clear=button("CLEAR"){if(!busy){files.clear();retryEntries.clear();served.clear();refreshQueue();saveState()}}.apply{isEnabled=!busy};queueTop.addView(clear,lp(dp(82),dp(34)))
   packages.addView(queueTop)
   packages.addView(button("＋   ADD PKG FILES",true){chooseFiles()},lp(-1,dp(52)).apply{topMargin=dp(10)})
   packages.addView(button("SCAN PKG FOLDER"){chooseFolder()},lp(-1,dp(46)).apply{topMargin=dp(8)})
@@ -266,13 +266,13 @@ class MainActivity : Activity() {
   TransferRuntime.server?.stop();TransferRuntime.server=null;server?.stop();server=null
   if(!s.start()){status.text="Could not start local HTTP server on port 9898.";return}
   server=s;TransferRuntime.server=s;stopServerButton.isEnabled=true
-  retryEntries.clear()
   try{
    val serviceIntent=Intent(this,TransferForegroundService::class.java).setAction(TransferForegroundService.ACTION_START)
    if(android.os.Build.VERSION.SDK_INT>=26)startForegroundService(serviceIntent)else startService(serviceIntent)
   }catch(e:Exception){
    s.stop();server=null;TransferRuntime.server=null;stopServerButton.isEnabled=false;status.text="Could not start transfer service: ${e.message?: "service error"}";return
   }
+  retryEntries.clear()
   window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
   serverInfo.text="Phone file server: http://$local:9898/  •  Keep XPD open"
   transferCancelled=false;paused=false;busy=true;pauseButton.text="PAUSE TRANSFER";pauseButton.isEnabled=true;retryButton.isEnabled=false;refreshQueue()
@@ -428,7 +428,7 @@ class MainActivity : Activity() {
    val actions=LinearLayout(this).apply{orientation=0;gravity=Gravity.END}
    actions.addView(button("UP"){if(!busy&&index>0){Collections.swap(files,index,index-1);refreshQueue();saveState()}}.apply{isEnabled=!busy&&index>0},lp(dp(64),dp(32)).apply{rightMargin=dp(6)})
    actions.addView(button("DOWN"){if(!busy&&index<files.lastIndex){Collections.swap(files,index,index+1);refreshQueue();saveState()}}.apply{isEnabled=!busy&&index<files.lastIndex},lp(dp(72),dp(32)).apply{rightMargin=dp(6)})
-   actions.addView(button("REMOVE"){if(!busy){files.removeAll{it.id==f.id};served.remove(f.id);refreshQueue();saveState()}},lp(dp(88),dp(32)))
+   actions.addView(button("REMOVE"){if(!busy){files.removeAll{it.id==f.id};retryEntries.removeAll{it.id==f.id};served.remove(f.id);refreshQueue();saveState()}},lp(dp(88),dp(32)))
    row.addView(actions,lp(-1,dp(34)).apply{topMargin=dp(8)})
    queue.addView(row,lp(-1,-2).apply{topMargin=dp(7)})
   }
