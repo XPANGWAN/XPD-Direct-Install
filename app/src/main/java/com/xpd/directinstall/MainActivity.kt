@@ -241,6 +241,7 @@ class MainActivity : Activity() {
  private fun sendFiles(retryOnly:Boolean=false){
   if(busy)return
   if(ps5ReceiverBusy){status.text="Wait for PS5 receiver deployment to finish.";return}
+  if(TransferRuntime.server!=null){status.text="The previous file server is still active. Stop it after the console finishes downloading before starting another queue.";return}
   if(scanning){status.text="Wait for the folder scan to finish.";return}
   val queueToSend=if(retryOnly)retryEntries.toList() else files.toList()
   if(queueToSend.isEmpty()){status.text=if(retryOnly)"There are no failed or pending packages to retry." else "Add at least one .pkg file.";return}
@@ -359,14 +360,14 @@ class MainActivity : Activity() {
  }
  private fun stopTransferServer(){
   transferCancelled=true;paused=false
-  try{startService(Intent(this,TransferForegroundService::class.java).setAction(TransferForegroundService.ACTION_STOP))}catch(_:Exception){
-   TransferRuntime.server?.stop();TransferRuntime.server=null
-  }
+  TransferRuntime.server?.stop();TransferRuntime.server=null
+  try{startService(Intent(this,TransferForegroundService::class.java).setAction(TransferForegroundService.ACTION_STOP))}catch(_:Exception){}
   server=null
   stopServerButton.isEnabled=false
   window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
   serverInfo.text="Local file server stopped."
   status.text="Transfer server stopped by user."
+  refreshQueue()
  }
  private fun localIp(targetIp:String?=null):String? {
   return try {
@@ -444,8 +445,8 @@ class MainActivity : Activity() {
     }
    }
   }
-  send.isEnabled=files.isNotEmpty()&&!busy;clear.isEnabled=!busy
-  if(::retryButton.isInitialized&&!busy)retryButton.isEnabled=retryEntries.isNotEmpty()
+  send.isEnabled=files.isNotEmpty()&&!busy&&TransferRuntime.server==null;clear.isEnabled=!busy
+  if(::retryButton.isInitialized&&!busy)retryButton.isEnabled=retryEntries.isNotEmpty()&&TransferRuntime.server==null
  }
  private fun updatePackageProgress(id:String){
   val entry=files.firstOrNull{it.id==id}?:return
