@@ -84,6 +84,13 @@ class PkgHttpServer(
                 respond(output, 405, "Method Not Allowed", "Only GET and HEAD are supported")
                 return
             }
+            if (path.startsWith("/icon/")) {
+                val id = path.removePrefix("/icon/")
+                val entry = entries.firstOrNull { it.id == id }
+                if (entry == null) { respond(output,404,"Not Found","Package not found"); return }
+                serveIcon(entry, method == "HEAD", output)
+                return
+            }
             if (path.startsWith("/manifest/")) {
                 val id = path.removePrefix("/manifest/")
                 val entry = entries.firstOrNull { it.id == id }
@@ -99,6 +106,18 @@ class PkgHttpServer(
             }
             serve(entry, method == "HEAD", headers["range"], output)
         }
+    }
+
+    private fun serveIcon(entry: PkgEntry, head: Boolean, output: OutputStream) {
+        val icon = entry.metadata?.iconPng
+        if (icon == null || icon.isEmpty()) {
+            respond(output,404,"Not Found","Package icon not available")
+            return
+        }
+        val header = "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: ${icon.size}\r\nCache-Control: public, max-age=3600\r\nConnection: close\r\n\r\n"
+        output.write(header.toByteArray(Charsets.US_ASCII))
+        if (!head) output.write(icon)
+        output.flush()
     }
 
     private fun serveManifest(entry: PkgEntry, head: Boolean, output: OutputStream) {
