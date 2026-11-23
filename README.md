@@ -1,50 +1,49 @@
 # XPD Direct Install
 
-Native Android application for sending PlayStation PKG files over a local network. The project is being rebuilt toward the practical workflow of [Loopayeh/pkg-sender](https://github.com/Loopayeh/pkg-sender), with Android-specific storage, network and lifecycle handling.
+Native Android application for sending PlayStation PKG files over a local network. The project follows the practical workflow of [Loopayeh/pkg-sender](https://github.com/Loopayeh/pkg-sender), with an Android-native interface, storage access and transfer lifecycle.
 
-## Current implementation — 0.9.0
+## Current implementation — 0.9.2
 
-- Native black-and-silver Android interface.
-- Add individual files or recursively scan a selected folder for `.pkg` files.
-- Validate PS4 CNT and PS5 FIH package signatures; file extension case does not determine validity.
-- Read PS4 `param.sfo` and PS5 `param.json` metadata where available: title, Title ID, Content ID, category and version.
-- Extract an embedded PNG package icon when present.
-- Search by title, filename, Title ID or Content ID; filter BASE/UPDATE/DLC; associate package cards by exact Title ID; show covers and progress, with remove and reorder controls.
-- Discover compatible local endpoints on Wi-Fi: RPI/receiver port 12800 and GoldHEN ports 9090, 9021 and 9020.
-- PS4 RPI request path on port 12800.
-- PS4 GoldHEN path: payload injection, callback listener, package metadata struct and BGFT manifest endpoint.
+- Native black-and-silver interface with XPD wolf mark.
+- Add individual PKG files or recursively scan a selected folder; .pkg extension matching is case-insensitive and the container signature is validated.
+- Read PS4 CNT and PS5 FIH package metadata where available, including title, Title ID, Content ID, category and version; extract embedded PNG icons.
+- Search by title, filename, Title ID or Content ID; filter BASE/UPDATE/DLC; group related entries by Title ID count; remove and reorder queue entries.
+- Pause/resume between package submissions and retry the failed/pending portion of the queue.
+- Discover compatible receivers on the local Wi-Fi network.
+- PS4: send through Remote Package Installer on port 12800 or GoldHEN payload server on 9090/9021/9020.
+- PS5: upload the bundled pkg-receiver.elf through Payload Manager (default web port 8084), launch it, then send PS5 PKG files to the receiver on port 12800.
 - Local phone HTTP server on port 9898 supports GET, HEAD and byte-range requests.
-- Foreground data-sync service and a bounded CPU wake lock keep the local file server alive when the Activity is backgrounded; a Stop File Server control ends it explicitly.
+- Foreground data-sync service and bounded CPU wake lock keep the local file server alive when the Activity is backgrounded; Stop File Server shuts it down.
 - Selected file URIs and console settings are persisted when Android grants access.
 
-## Compatibility and honest status
+## Transfer workflow
 
-- **PS4 + RPI:** request path is implemented; real-console testing is still required.
-- **PS4 + GoldHEN:** payload/callback/manifest path is implemented; real-console testing across GoldHEN versions and network configurations is still required.
-- **PS5:** PS5 package metadata is recognized, but the PS5 receiver payload and PS5 install workflow are not integrated yet. The app blocks sending PS5 PKGs through the PS4 installer path.
-- A dedicated full-library screen with expandable game families, plus pause/resume/retry controls, remains to be completed; the current queue already supports search, type filters, Title ID family association, removal and reordering.
-- A successful HTTP response or payload callback means the receiver accepted the request; it does not prove that installation completed. Confirm the result on the console.
+1. Keep the phone and console on the same reachable LAN.
+2. Select PKG files or scan a folder.
+3. For PS4, enable RPI or GoldHEN on the console. For PS5, start Payload Manager and use INSTALL PS5 RECEIVER first.
+4. Enter the console IP, select the matching receiver port, and start the queue.
+5. A successful receiver response means the package request was accepted; it is not a guarantee that the console completed installation.
 
 ## Build
 
-The Android Actions workflow builds a debug APK on every push to `main`. Download the `xpd-direct-install-debug-apk` artifact from a successful run.
+The Android Actions workflow builds a debug APK on every push to main. Download the xpd-direct-install-debug-apk artifact from a successful run.
 
 A signed release APK is built only when these GitHub Actions secrets are configured:
 
-- `XPD_KEYSTORE_BASE64`
-- `XPD_KEYSTORE_PASSWORD`
-- `XPD_KEY_ALIAS`
-- `XPD_KEY_PASSWORD`
+- XPD_KEYSTORE_BASE64
+- XPD_KEYSTORE_PASSWORD
+- XPD_KEY_ALIAS
+- XPD_KEY_PASSWORD
 
-Keep the keystore private and backed up. Upgradeable releases must keep application ID `com.xpd.directinstall` and the same signing key, with a higher version code.
+Keep the keystore private and backed up. Upgradeable releases must keep application ID com.xpd.directinstall and the same signing key, with a higher version code.
 
-## Third-party code and payload
+## Third-party notices
 
-The GoldHEN installer payload in `app/src/main/assets/ps4_dpi_payload.bin.b64` is from [Loopayeh/pkg-sender](https://github.com/Loopayeh/pkg-sender) and is distributed under its MIT license. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The Android metadata parser, queue UI, local server and integration code are XPD implementations.
+- The PS4 GoldHEN installer payload and PS5 pkg-receiver.elf are from [Loopayeh/pkg-sender](https://github.com/Loopayeh/pkg-sender), under its MIT license. The PS5 receiver asset is bundled as Base64 text and decoded at runtime. See THIRD_PARTY_NOTICES.md.
+- XPD's Kotlin UI, package metadata reader, local HTTP server and Android integration are maintained in this repository.
 
-## Safety and requirements
+## Requirements and limitations
 
-- Use only with a PlayStation console and network you own or are authorized to administer.
-- A compatible PS4 RPI service or GoldHEN Payload Server must already be running.
-- Keep the phone and console reachable on the same local network; the phone must accept the console's callback connection for GoldHEN.
+- A compatible receiver must already be available on the console; the PS5 receiver can be deployed by the app through Payload Manager.
+- The phone and console must be reachable on the same local network. GoldHEN also needs to connect back to the phone's callback listener.
 - This project does not bypass console signing, licensing, firmware or installation restrictions.
