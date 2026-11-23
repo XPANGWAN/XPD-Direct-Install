@@ -130,6 +130,7 @@ class MainActivity : Activity() {
    .putString("ps5_web_port",if(::ps5WebPort.isInitialized)ps5WebPort.text.toString().trim() else "8084")
    .putString("pkg_uris",arr.toString()).apply()
  }
+ override fun onResume(){super.onResume();if(::stopServerButton.isInitialized){server=TransferRuntime.server;stopServerButton.isEnabled=server!=null;if(server==null)serverInfo.text="Local file server stopped.";refreshQueue()}}
  override fun onPause(){saveState();super.onPause()}
  private fun sectionHeader(s:String)=label(s,10f,silver).apply{letterSpacing=.14f;setPadding(2,0,2,10)}
  private fun card()=LinearLayout(this).apply{
