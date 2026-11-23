@@ -59,6 +59,7 @@ class MainActivity : Activity() {
   root.addView(toolbar,lp(-1,dp(44)).apply{bottomMargin=dp(10)})
 
   val connection=card()
+  val connectionBody=LinearLayout(this).apply{orientation=1}
   val connectionHead=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
   val connectionTitles=LinearLayout(this).apply{orientation=1}
   connectionTitles.addView(label("PLAYSTATION",11f,silver).apply{
@@ -73,7 +74,6 @@ class MainActivity : Activity() {
   connectionHead.addView(connectionToggle,lp(dp(86),dp(34)))
   connection.addView(connectionHead)
 
-  val connectionBody=LinearLayout(this).apply{orientation=1}
   ip=field("Console IP address",false).apply{
    inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
   }
@@ -90,10 +90,7 @@ class MainActivity : Activity() {
   check=button("TEST",true){checkReceiver()}
   addressRow.addView(check,lp(dp(68),dp(46)).apply{leftMargin=dp(8);topMargin=dp(13)})
   connectionBody.addView(addressRow,lp(-1,-2).apply{topMargin=dp(12)})
-  connectionBody.addView(button("FIND CONSOLE"){discoverConsole()}.apply{
-   setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_search,0,0,0)
-   compoundDrawablePadding=dp(7)
-  },lp(-1,dp(40)).apply{topMargin=dp(8)})
+  connectionBody.addView(button("FIND CONSOLE"){discoverConsole()},lp(-1,dp(40)).apply{topMargin=dp(8)})
   ps5Advanced=LinearLayout(this).apply{
    orientation=1;visibility=View.GONE;setPadding(0,dp(10),0,0)
   }
