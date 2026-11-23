@@ -1,6 +1,6 @@
 package com.xpd.directinstall
 
-import android.content.ContentResolver
+import android.content.Context
 import android.util.Base64
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * XPD supplies the phone-side metadata service and transfer orchestration.
  */
 class GoldHenPayloadBridge(
-    private val resolver: ContentResolver,
+    private val context: Context,
     private val entries: List<PkgEntry>,
     private val phoneIp: String,
     private val onStatus: (String) -> Unit,
@@ -131,7 +131,7 @@ class GoldHenPayloadBridge(
     }
 
     private fun loadPayload(): ByteArray {
-        val encoded = resolver.assets.open("xpd-dpi-payload.b64")
+        val encoded = context.assets.open("xpd-dpi-payload.b64")
             .bufferedReader(Charsets.US_ASCII).use { it.readText() }
         val bytes = Base64.decode(encoded, Base64.DEFAULT)
         require(bytes.isNotEmpty()) { "Bundled GoldHEN payload is empty" }
