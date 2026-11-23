@@ -26,12 +26,12 @@ class MainActivity : Activity() {
  private val files=mutableListOf<PkgEntry>(); private val served=ConcurrentHashMap<String,Long>()
  private var server:PkgHttpServer?=null; private lateinit var ip:EditText; private lateinit var port:EditText
  private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:TextView
- private lateinit var send:Button; private lateinit var check:Button; private lateinit var serverInfo:TextView
+ private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var serverInfo:TextView
  private var busy=false
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();restoreState()}
  private fun buildUi(){
   val root=LinearLayout(this).apply{orientation=1;setPadding(20,22,20,20);setBackgroundColor(bg)}
-  val scroll=ScrollView(this).apply{clipToPadding=false}
+  val scroll=ScrollView(this).apply{clipToPadding=false;isFillViewport=true;fillViewport=true}
   val body=LinearLayout(this).apply{orientation=1}
   val brand=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
   val mark=ImageView(this).apply{setImageResource(R.drawable.xpd_wolf_mark);scaleType=ImageView.ScaleType.FIT_CENTER}
@@ -39,7 +39,7 @@ class MainActivity : Activity() {
   val brandText=LinearLayout(this).apply{orientation=1}
   brandText.addView(label("XPD",30f,Color.WHITE).apply{typeface=android.graphics.Typeface.create("sans-serif-black",android.graphics.Typeface.BOLD);letterSpacing=.10f})
   brandText.addView(label("DIRECT INSTALL",13f,silver).apply{letterSpacing=.22f})
-  brandText.addView(label("PS4 PKG SENDER  •  v0.5.0",10f,muted).apply{letterSpacing=.08f;setPadding(1,5,0,0)})
+  brandText.addView(label("PS4 PKG SENDER  •  v0.6.1",10f,muted).apply{letterSpacing=.08f;setPadding(1,5,0,0)})
   brand.addView(brandText,LinearLayout.LayoutParams(0,-2,1f))
   body.addView(brand,lp(-1,dp(82)).apply{bottomMargin=dp(22)})
   body.addView(sectionHeader("01  /  CONSOLE"))
@@ -55,7 +55,7 @@ class MainActivity : Activity() {
   val packages=card()
   val queueTop=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
   queueTop.addView(label("TRANSFER QUEUE",10f,silver).apply{letterSpacing=.12f},LinearLayout.LayoutParams(0,dp(24),1f))
-  queueTop.addView(button("CLEAR"){files.clear();served.clear();refreshQueue();saveState()},lp(dp(82),dp(34)))
+  clear=button("CLEAR"){if(!busy){files.clear();served.clear();refreshQueue();saveState()}}.apply{isEnabled=!busy};queueTop.addView(clear,lp(dp(82),dp(34)))
   packages.addView(queueTop)
   packages.addView(button("＋   ADD PKG FILES",true){chooseFiles()},lp(-1,dp(52)).apply{topMargin=dp(10)})
   fileInfo=label("No packages selected",12f,muted).apply{setPadding(2,dp(14),2,dp(8))};packages.addView(fileInfo)
@@ -84,9 +84,9 @@ class MainActivity : Activity() {
     if(files.any{it.uri==u})continue
     try{
      val name=query(u,OpenableColumns.DISPLAY_NAME)?: "package.pkg"
-     if(name.lowercase(Locale.ROOT).endsWith(".pkg")){
+     if(isValidPkg(u)){
       val size=packageSize(u)
-      files.add(PkgEntry(files.size.toString(),u,name,size))
+      files.add(PkgEntry(files.size.toString(),u,displayPkgName(name),size))
      }
     }catch(_:Exception){}
    }
@@ -113,7 +113,7 @@ class MainActivity : Activity() {
  private fun lp(w:Int,h:Int)=LinearLayout.LayoutParams(w,h)
  private fun field(h:String,n:Boolean)=EditText(this).apply{hint=h;setHintTextColor(muted);setTextColor(Color.WHITE);textSize=14f;setSingleLine(true);setPadding(14,13,14,13);setBackgroundColor(panel);inputType=if(n)android.text.InputType.TYPE_CLASS_NUMBER else android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS}
  private fun button(s:String,primary:Boolean=false,action:()->Unit)=Button(this).apply{text=s;setTextColor(if(primary)Color.BLACK else silver);setBackgroundTintList(android.content.res.ColorStateList.valueOf(if(primary)silver else panel));setOnClickListener{action()}}
- private fun chooseFiles(){val i=Intent(Intent.ACTION_OPEN_DOCUMENT).apply{addCategory(Intent.CATEGORY_OPENABLE);type="*/*";putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);putExtra(Intent.EXTRA_MIME_TYPES,arrayOf("application/vnd.playstation.pkg","application/octet-stream"))};startActivityForResult(i,41)}
+ private fun chooseFiles(){if(busy)return;val i=Intent(Intent.ACTION_OPEN_DOCUMENT).apply{addCategory(Intent.CATEGORY_OPENABLE);type="*/*";putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);putExtra(Intent.EXTRA_MIME_TYPES,arrayOf("application/vnd.playstation.pkg","application/octet-stream","application/x-pkg"))};startActivityForResult(i,41)}
  private fun validIp(s:String)=s.matches(Regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"))&&s.split(".").all{it.toIntOrNull()?.let { n -> n in 0..255 } == true}
  private fun checkReceiver(){
   val host=ip.text.toString().trim();val p=port.text.toString().toIntOrNull()
@@ -172,16 +172,29 @@ class MainActivity : Activity() {
  private fun refreshQueue(){
   fileInfo.text=if(files.isEmpty())"No packages selected" else "${files.size} package(s) selected"
   queue.text=if(files.isEmpty())"Your selected packages will appear here." else files.mapIndexed{i,f->val n=served[f.id]?:0L;val pct=if(f.size>0)(n*100/f.size).coerceIn(0,100)else 0;"${i+1}. ${f.name}\n   ${sizeText(f.size)} • served: $pct%"}.joinToString("\n\n")
-  send.isEnabled=files.isNotEmpty()&&!busy
+  send.isEnabled=files.isNotEmpty()&&!busy;clear.isEnabled=!busy
  }
  private fun sizeText(n:Long):String{if(n<0)return "Size unknown";val mb=n/1048576.0;return if(mb>=1024)String.format(Locale.US,"%.2f GB",mb/1024)else String.format(Locale.US,"%.1f MB",mb)}
  @Deprecated("Legacy result callback")
  override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?){super.onActivityResult(requestCode,resultCode,data);if(requestCode!=41||resultCode!=RESULT_OK||data==null)return
   val uris=mutableListOf<Uri>();data.clipData?.let{for(i in 0 until it.itemCount)uris.add(it.getItemAt(i).uri)};if(uris.isEmpty())data.data?.let{uris.add(it)}
-  var count=0;uris.forEach{u->val name=query(u,OpenableColumns.DISPLAY_NAME)?:"file.pkg";if(!name.lowercase(Locale.ROOT).endsWith(".pkg")||files.any{it.uri==u})return@forEach
+  var count=0;var rejected=0;uris.forEach{u->if(files.any{it.uri==u})return@forEach
    try{contentResolver.takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION)}catch(_:SecurityException){}
-   files.add(PkgEntry(files.size.toString(),u,name,packageSize(u)));count++}
-  status.text=if(count>0)"$count PKG file(s) added." else "No new .pkg files selected.";refreshQueue();saveState()
+   if(!isValidPkg(u)){rejected++;return@forEach}
+   val name=query(u,OpenableColumns.DISPLAY_NAME)?:"package.pkg"
+   files.add(PkgEntry(files.size.toString(),u,displayPkgName(name),packageSize(u)));count++}
+  status.text=when{count>0&&rejected>0->"$count valid PKG file(s) added; $rejected invalid file(s) skipped.";count>0->"$count valid PKG file(s) added.";rejected>0->"No valid PlayStation PKG found. Check the selected file.";else->"No new PKG files selected."};refreshQueue();saveState()
+ }
+ private fun displayPkgName(name:String)=if(name.lowercase(Locale.ROOT).endsWith(".pkg"))name else name+".pkg"
+ private fun isValidPkg(u:Uri):Boolean {
+  return try {
+   val size=packageSize(u);if(size in 0 until 256)return false
+   contentResolver.openInputStream(u)?.use { stream ->
+    val magic=ByteArray(4);var offset=0
+    while(offset<4){val n=stream.read(magic,offset,4-offset);if(n<=0)return false;offset+=n}
+    magic[0]==0x7f.toByte()&&magic[1]==0x43.toByte()&&magic[2]==0x4e.toByte()&&magic[3]==0x54.toByte()
+   }?:false
+  }catch(_:Exception){false}
  }
  private fun packageSize(u:Uri):Long { val column=query(u,OpenableColumns.SIZE)?.toLongOrNull(); if(column!=null&&column>=0)return column; return try{contentResolver.openFileDescriptor(u,"r")?.use{it.statSize}?:-1L}catch(_:Exception){-1L} }
  private fun query(u:Uri,col:String):String?{var c:Cursor?=null;return try{c=contentResolver.query(u,arrayOf(col),null,null,null);if(c!=null&&c.moveToFirst()){val i=c.getColumnIndex(col);if(i>=0&&!c.isNull(i))c.getString(i)else null}else null}catch(_:Exception){null}finally{c?.close()}}
