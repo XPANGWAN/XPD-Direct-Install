@@ -126,7 +126,7 @@ class MainActivity : Activity() {
    val body=(if(code in 200..299)conn.inputStream else conn.errorStream)?.bufferedReader()?.use{it.readText()}?:""
    if(kind=="GoldHEN"&&body.contains("status")&&body.contains("ready"))
     "GoldHEN detected on 9090. Online; this build does not yet include the GoldHEN installer payload."
-   else if(kind=="RPI"&&(body.contains("Unsupported method",true)||body.contains("fail",true)||code in 200..299))
+   else if(kind=="RPI"&&(body.contains("Unsupported method",true)||(body.contains("Unsupported method",true)&&body.contains("fail",true))))
     "RPI detected on port $p."
    else "Port $p responded (HTTP $code), but $kind was not confirmed."
   }catch(e:Exception){"No $kind response on $p: "+(e.message?:"connection failed")}finally{conn?.disconnect()}
@@ -148,7 +148,7 @@ class MainActivity : Activity() {
    c=URL("http://$host:$p/api/install").openConnection() as HttpURLConnection;c.requestMethod="POST";c.connectTimeout=10000;c.readTimeout=15000;c.doOutput=true;c.setRequestProperty("Content-Type","application/json")
    c.outputStream.use{it.write(json.toString().toByteArray(Charsets.UTF_8))}
    val code=c.responseCode;val body=(if(code in 200..299)c.inputStream else c.errorStream)?.bufferedReader()?.use{it.readText()}?:""
-   if(code in 200..299)"PS4 accepted the queue (HTTP $code). Verify actual installation on the console.\n$body" else "PS4 rejected the request (HTTP $code).\n$body"
+   if(code in 200..299&&body.contains("success",true))"RPI accepted the package request. Confirm the download and installation on the PS4.\n$body" else "RPI did not confirm acceptance (HTTP $code).\n$body"
   }catch(e:Exception){"Could not submit packages: "+(e.message?:"network error")}finally{c?.disconnect()}
   runOnUiThread{status.text=msg;busy=false;send.isEnabled=files.isNotEmpty()}
   }.start()
