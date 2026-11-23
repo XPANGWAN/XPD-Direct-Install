@@ -9,7 +9,7 @@ Native Android application for sending PlayStation PKG files over a local networ
 - Validate PS4 CNT and PS5 FIH package signatures; file extension case does not determine validity.
 - Read PS4 `param.sfo` and PS5 `param.json` metadata where available: title, Title ID, Content ID, category and version.
 - Extract an embedded PNG package icon when present.
-- Search by title, filename, Title ID or Content ID; filter BASE/UPDATE/DLC; queue cards show covers and progress, with remove and reorder controls.
+- Search by title, filename, Title ID or Content ID; filter BASE/UPDATE/DLC; associate package cards by exact Title ID; show covers and progress, with remove and reorder controls.
 - Discover compatible local endpoints on Wi-Fi: RPI/receiver port 12800 and GoldHEN ports 9090, 9021 and 9020.
 - PS4 RPI request path on port 12800.
 - PS4 GoldHEN path: payload injection, callback listener, package metadata struct and BGFT manifest endpoint.
@@ -22,7 +22,7 @@ Native Android application for sending PlayStation PKG files over a local networ
 - **PS4 + RPI:** request path is implemented; real-console testing is still required.
 - **PS4 + GoldHEN:** payload/callback/manifest path is implemented; real-console testing across GoldHEN versions and network configurations is still required.
 - **PS5:** PS5 package metadata is recognized, but the PS5 receiver payload and PS5 install workflow are not integrated yet. The app blocks sending PS5 PKGs through the PS4 installer path.
-- A full library catalog with family grouping, plus pause/resume/retry controls, remains to be completed; the current queue already supports search, type filters, removal and reordering.
+- A dedicated full-library screen with expandable game families, plus pause/resume/retry controls, remains to be completed; the current queue already supports search, type filters, Title ID family association, removal and reordering.
 - A successful HTTP response or payload callback means the receiver accepted the request; it does not prove that installation completed. Confirm the result on the console.
 
 ## Build
