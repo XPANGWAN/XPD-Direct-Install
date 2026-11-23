@@ -44,6 +44,22 @@ class TransferForegroundService : Service() {
         return START_NOT_STICKY
     }
 
+    @android.annotation.TargetApi(35)
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        // Android 15 limits dataSync foreground services to six hours per 24-hour period.
+        // Stop the local server promptly so the system never reports a timed-out FGS.
+        TransferRuntime.server?.stop()
+        TransferRuntime.server = null
+        releaseWakeLock()
+        if (Build.VERSION.SDK_INT >= 24) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
+        stopSelf(startId)
+    }
+
     override fun onDestroy() {
         TransferRuntime.server?.stop()
         TransferRuntime.server = null
