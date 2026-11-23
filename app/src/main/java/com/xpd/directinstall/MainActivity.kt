@@ -126,7 +126,7 @@ class MainActivity : Activity() {
    val body=(if(code in 200..299)conn.inputStream else conn.errorStream)?.bufferedReader()?.use{it.readText()}?:""
    if(kind=="GoldHEN"&&body.contains("status")&&body.contains("ready"))
     "GoldHEN detected on 9090. Online; this build does not yet include the GoldHEN installer payload."
-   else if(kind=="RPI"&&(body.contains("Unsupported method",true)||(body.contains("Unsupported method",true)&&body.contains("fail",true))))
+   else if(kind=="RPI"&&(body.contains("Unsupported method",true)&&body.contains("fail",true)))
     "RPI detected on port $p."
    else "Port $p responded (HTTP $code), but $kind was not confirmed."
   }catch(e:Exception){"No $kind response on $p: "+(e.message?:"connection failed")}finally{conn?.disconnect()}
