@@ -27,9 +27,37 @@ jobs:
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
 
-      - name: Upload APK
+      - name: Upload debug APK
         uses: actions/upload-artifact@v7
         with:
           name: xpd-direct-install-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Configure persistent release signing
+        if: ${{ env.XPD_KEYSTORE_BASE64 != '' }}
+        env:
+          XPD_KEYSTORE_BASE64: ${{ secrets.XPD_KEYSTORE_BASE64 }}
+          XPD_KEYSTORE_PASSWORD: ${{ secrets.XPD_KEYSTORE_PASSWORD }}
+          XPD_KEY_ALIAS: ${{ secrets.XPD_KEY_ALIAS }}
+          XPD_KEY_PASSWORD: ${{ secrets.XPD_KEY_PASSWORD }}
+        run: |
+          echo "$XPD_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/xpd-release.jks"
+          echo "XPD_KEYSTORE_PATH=$RUNNER_TEMP/xpd-release.jks" >> "$GITHUB_ENV"
+          echo "XPD_KEYSTORE_PASSWORD=$XPD_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "XPD_KEY_ALIAS=$XPD_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "XPD_KEY_PASSWORD=$XPD_KEY_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        if: ${{ env.XPD_KEYSTORE_BASE64 != '' }}
+        env:
+          XPD_KEYSTORE_BASE64: ${{ secrets.XPD_KEYSTORE_BASE64 }}
+        run: gradle assembleRelease --no-daemon
+
+      - name: Upload signed release APK
+        if: ${{ env.XPD_KEYSTORE_BASE64 != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: xpd-direct-install-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
