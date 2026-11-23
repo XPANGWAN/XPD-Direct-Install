@@ -106,7 +106,7 @@ class MainActivity : Activity() {
   if(p==9090){status.text="GoldHEN uses payload injection, not the RPI /api/install request. This build detects GoldHEN but does not yet send PKG through it.";return}
   if(p!=12800){status.text="RPI installation is supported on port 12800 in this build.";return}
   val local=localIp()?:run{status.text="Connect phone and PS4 to the same Wi-Fi network.";return}
-  val s=PkgHttpServer(contentResolver,8080,files.toList(),onBytes={id,n->served[id]=n;runOnUiThread{refreshQueue()}},onServerError={m->runOnUiThread{status.text=m}})
+  val s=PkgHttpServer(contentResolver,8080,files.toList(),onBytes={id,n->served.compute(id){_,old->((old?:0L)+n).let{v->val size=files.firstOrNull{it.id==id}?.size?:-1L;if(size>0)v.coerceAtMost(size)else v}};runOnUiThread{refreshQueue()}},onServerError={m->runOnUiThread{status.text=m}})
   if(!s.start()){status.text="Could not start local server on port 8080.";return}
   server?.stop();server=s;window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
   serverInfo.text="Phone server: http://$local:8080/";busy=true;send.isEnabled=false;status.text="Submitting package queue to PS4…"
