@@ -127,7 +127,7 @@ class MainActivity : Activity() {
   body.addView(libraryHead,lp(-1,-2).apply{bottomMargin=dp(8)})
 
   val library=card()
-  packages@ run {
+  run {
    val add=button("ADD PKG FILES",true){chooseFiles()}.apply{
     setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder,0,0,0)
     compoundDrawablePadding=dp(8)
@@ -588,7 +588,7 @@ class MainActivity : Activity() {
      progressViews[f.id]=progress
 
      val options=button("FILE OPTIONS"){ 
-      val popup=PopupMenu(this@MainActivity,it)
+      val popup=PopupMenu(this@MainActivity,row.getChildAt(row.childCount-1))
       popup.menu.add(0,1,0,"Move up").isEnabled=!busy&&index>0
       popup.menu.add(0,2,1,"Move down").isEnabled=!busy&&index<files.lastIndex
       popup.menu.add(0,3,2,"Remove file").isEnabled=!busy
@@ -616,7 +616,8 @@ class MainActivity : Activity() {
   val sent=served[id]?:0L
   val pct=if(entry.size>0)(sent*100/entry.size).coerceIn(0L,100L).toInt()else 0
   progressViews[id]?.progress=pct
-  progressLabels[id]?.text="${entry.name}  •  ${sizeText(entry.size)}  •  served ${pct}%"
+  progressViews[id]?.visibility=if(sent>0L)View.VISIBLE else View.GONE
+  progressLabels[id]?.text=if(sent>0L)"${sizeText(entry.size)}  |  ${pct}% served" else sizeText(entry.size)
  }
  private fun sizeText(n:Long):String{if(n<0)return "Size unknown";val mb=n/1048576.0;return if(mb>=1024)String.format(Locale.US,"%.2f GB",mb/1024)else String.format(Locale.US,"%.1f MB",mb)}
  @Deprecated("Legacy result callback")
