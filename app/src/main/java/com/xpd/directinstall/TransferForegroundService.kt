@@ -8,8 +8,10 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 
 class TransferForegroundService : Service() {
+    private var wakeLock: PowerManager.WakeLock? = null
     companion object {
         const val ACTION_START = "com.xpd.directinstall.action.START_TRANSFER_SERVICE"
         const val ACTION_STOP = "com.xpd.directinstall.action.STOP_TRANSFER_SERVICE"
@@ -44,6 +46,20 @@ class TransferForegroundService : Service() {
         TransferRuntime.server?.stop()
         TransferRuntime.server = null
         super.onDestroy()
+    }
+
+    private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        val power = getSystemService(PowerManager::class.java)
+        wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "XPD:PkgTransfer").apply {
+            setReferenceCounted(false)
+            acquire(5L * 60L * 60L * 1000L)
+        }
+    }
+
+    private fun releaseWakeLock() {
+        try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (_: Exception) { }
+        wakeLock = null
     }
 
     private fun createChannel() {
