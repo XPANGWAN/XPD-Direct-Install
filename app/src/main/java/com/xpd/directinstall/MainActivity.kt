@@ -66,12 +66,12 @@ class MainActivity : Activity() {
   connectionHead.addView(connectionTitles,LinearLayout.LayoutParams(0,-2,1f));connection.addView(connectionHead)
   ip=field("Console IP address",false).apply{inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS}
   port=field("Auto",true).apply{setText("12800");visibility=View.GONE}
-  check=button("TEST",true){checkReceiver()}
+  check=button("TEST",true){checkReceiver()}.apply{setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_link,0,0,0);compoundDrawablePadding=dp(5)}
   val addressRow=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
   addressRow.addView(ip,LinearLayout.LayoutParams(0,dp(46),1f).apply{rightMargin=dp(8)})
   addressRow.addView(check,lp(dp(76),dp(46)))
   connection.addView(addressRow,lp(-1,-2).apply{topMargin=dp(12)})
-  connection.addView(button("FIND CONSOLE"){discoverConsole()},lp(-1,dp(40)).apply{topMargin=dp(8)})
+  connection.addView(button("FIND CONSOLE"){discoverConsole()}.apply{setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_search,0,0,0);compoundDrawablePadding=dp(6)},lp(-1,dp(40)).apply{topMargin=dp(8)})
   root.addView(connection,lp(-1,-2).apply{bottomMargin=dp(14)})
 
   val libraryHeader=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
@@ -125,6 +125,9 @@ class MainActivity : Activity() {
   root.addView(status,lp(-1,-2).apply{topMargin=dp(8)})
   pauseButton=button("",false){togglePause()}.apply{contentDescription="Pause transfer";visibility=View.GONE;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_pause,0,0,0)}
   root.addView(pauseButton,lp(dp(48),dp(42)).apply{gravity=Gravity.CENTER_HORIZONTAL;topMargin=dp(6)})
+  val copyright=label("© XPANGWAN  •  XPD DIRECT INSTALL",9f,muted).apply{gravity=Gravity.CENTER;setPadding(0,dp(8),0,0)}
+  copyright.setOnClickListener{try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/XPANGWAN/XPD-Direct-Install")))}catch(_:Exception){}}
+  root.addView(copyright,lp(-1,dp(28)))
   setContentView(root)
  }
  private fun prefs()=getSharedPreferences("xpd_direct_install",MODE_PRIVATE)
@@ -266,16 +269,27 @@ class MainActivity : Activity() {
  }
  private fun sendFiles(retryOnly:Boolean=false){
   if(busy)return
-  if(TransferRuntime.server!=null){status.text="The previous file server is still active. Stop it after the console finishes downloading before starting another queue.";return}
+  if(TransferRuntime.server!=null){status.text="The previous file server is still active. Wait for the console to finish downloading.";return}
   if(scanning){status.text="Wait for the folder scan to finish.";return}
   val queueToSend=if(retryOnly)retryEntries.toList() else files.toList()
-  if(queueToSend.isEmpty()){status.text=if(retryOnly)"There are no failed or pending packages to retry." else "Add at least one .pkg file.";return}
+  if(queueToSend.isEmpty()){status.text="Add at least one .pkg file.";return}
   val host=ip.text.toString().trim()
   if(!validIp(host)){status.text="Enter a valid PlayStation IPv4 address.";return}
+  send.isEnabled=false
   status.text="Detecting receiver automatically on port 12800 or 9090…"
-  val p=detectReceiverPort(host)?:run{status.text="No supported receiver found. Start the receiver on port 12800 or 9090.";return}
-  port.setText(p.toString());val goldHen=p==9090
-  if(goldHen&&queueToSend.any{it.metadata?.platform!="PS4"}){status.text="GoldHEN accepts PS4 PKG files only.";return}
+  Thread{
+   val detected=detectReceiverPort(host)
+   runOnUiThread{
+    send.isEnabled=true
+    if(detected==null){status.text="No supported receiver found. Start the receiver on port 12800 or 9090.";return@runOnUiThread}
+    port.setText(detected.toString())
+    if(detected==9090&&queueToSend.any{it.metadata?.platform!="PS4"}){status.text="GoldHEN accepts PS4 PKG files only.";return@runOnUiThread}
+    beginTransfer(queueToSend,host,detected)
+   }
+  }.start()
+ }
+ private fun beginTransfer(queueToSend:List<PkgEntry>,host:String,p:Int){
+  val goldHen=p==9090
   val local=localIp(host)?:run{status.text="Could not find a phone IPv4 address on the same LAN as the console.";return}
   val activityRef=WeakReference(this)
   val queueSnapshot=queueToSend
