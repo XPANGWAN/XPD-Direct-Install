@@ -27,9 +27,9 @@ class MainActivity : Activity() {
  private val panel=Color.rgb(27,29,34); private val bg=Color.rgb(12,13,16)
  private val files=mutableListOf<PkgEntry>(); private val served=ConcurrentHashMap<String,Long>()
  private var server:PkgHttpServer?=null; private lateinit var ip:EditText; private lateinit var port:EditText
- private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout
+ private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout; private lateinit var queueSearch:EditText
  private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var stopServerButton:Button; private lateinit var serverInfo:TextView
- private var busy=false
+ private var busy=false; private var filterRole="ALL"
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();server=TransferRuntime.server;stopServerButton.isEnabled=server!=null;restoreState()}
  private fun buildUi(){
   val root=LinearLayout(this).apply{orientation=1;setPadding(20,22,20,20);setBackgroundColor(bg)}
@@ -63,6 +63,17 @@ class MainActivity : Activity() {
   packages.addView(button("＋   ADD PKG FILES",true){chooseFiles()},lp(-1,dp(52)).apply{topMargin=dp(10)})
   packages.addView(button("SCAN PKG FOLDER"){chooseFolder()},lp(-1,dp(46)).apply{topMargin=dp(8)})
   fileInfo=label("No packages selected",12f,muted).apply{setPadding(2,dp(14),2,dp(8))};packages.addView(fileInfo)
+  queueSearch=field("Search title, Title ID or file name",false).apply{addTextChangedListener(object:android.text.TextWatcher{
+   override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){}
+   override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){refreshQueue()}
+   override fun afterTextChanged(s:android.text.Editable?){}
+  })}
+  packages.addView(queueSearch,lp(-1,dp(44)).apply{topMargin=dp(6)})
+  val filterRow=LinearLayout(this).apply{orientation=0}
+  listOf("ALL","BASE","UPDATE","DLC").forEach{tag->
+   filterRow.addView(button(tag,tag=="ALL"){filterRole=tag;refreshQueue()},LinearLayout.LayoutParams(0,dp(34),1f).apply{rightMargin=dp(4);topMargin=dp(7)})
+  }
+  packages.addView(filterRow)
   queue=LinearLayout(this).apply{orientation=1};queue.addView(label("Choose one or more PKG files to build your queue.",11f,muted).apply{setPadding(2,dp(8),2,dp(8))});packages.addView(queue)
   body.addView(packages,lp(-1,-2).apply{bottomMargin=dp(22)})
   body.addView(sectionHeader("03  /  SEND TO CONSOLE"))
@@ -314,10 +325,18 @@ class MainActivity : Activity() {
   }catch(_:Exception){null}
  }
  private fun refreshQueue(){
-  fileInfo.text=if(files.isEmpty())"No packages selected" else "${files.size} package(s) selected"
+  val query=if(::queueSearch.isInitialized)queueSearch.text.toString().trim().lowercase(Locale.ROOT)else ""
+  val visible=files.withIndex().filter{(_,entry)->
+   val meta=entry.metadata
+   val roleOk=when(filterRole){"BASE"->meta!=null&&!meta.isDlc&&!meta.isUpdate;"UPDATE"->meta?.isUpdate==true;"DLC"->meta?.isDlc==true;else->true}
+   val searchOk=query.isBlank()||listOf(entry.name,meta?.displayTitle.orEmpty(),meta?.titleId.orEmpty(),meta?.contentId.orEmpty()).any{it.lowercase(Locale.ROOT).contains(query)}
+   roleOk&&searchOk
+  }
+  fileInfo.text=if(files.isEmpty())"No packages selected" else "${files.size} package(s) • showing ${visible.size}"
   queue.removeAllViews()
-  if(files.isEmpty()){queue.addView(label("Your selected packages will appear here.",11f,muted).apply{setPadding(2,dp(8),2,dp(8))})}
-  files.forEachIndexed{i,f->
+  if(files.isEmpty()){queue.addView(label("Add PKG files or scan a folder to build your library.",11f,muted).apply{setPadding(2,dp(8),2,dp(8))})}
+  else if(visible.isEmpty()){queue.addView(label("No packages match this search or filter.",11f,muted).apply{setPadding(2,dp(8),2,dp(8))})}
+  visible.forEach{(index,f)->
    val row=LinearLayout(this).apply{orientation=1;setPadding(dp(12),dp(10),dp(12),dp(10));background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(19,21,25));cornerRadius=dp(12).toFloat();setStroke(1,Color.rgb(45,48,55))}}
    val meta=f.metadata
    val top=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
@@ -334,7 +353,11 @@ class MainActivity : Activity() {
    row.addView(label("${f.name}  •  ${sizeText(f.size)}  •  served ${pct}%",10f,muted).apply{setPadding(0,dp(7),0,0);maxLines=2})
    val progress=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply{max=100;this.progress=pct;progressTintList=android.content.res.ColorStateList.valueOf(silver);progressBackgroundTintList=android.content.res.ColorStateList.valueOf(Color.rgb(48,51,58))}
    row.addView(progress,lp(-1,dp(5)).apply{topMargin=dp(8)})
-   row.addView(button("REMOVE"){if(!busy){files.removeAll{it.id==f.id};served.remove(f.id);refreshQueue();saveState()}},lp(dp(88),dp(32)).apply{topMargin=dp(8)})
+   val actions=LinearLayout(this).apply{orientation=0;gravity=Gravity.END}
+   actions.addView(button("UP"){if(!busy&&index>0){Collections.swap(files,index,index-1);refreshQueue();saveState()}}.apply{isEnabled=!busy&&index>0},lp(dp(64),dp(32)).apply{rightMargin=dp(6)})
+   actions.addView(button("DOWN"){if(!busy&&index<files.lastIndex){Collections.swap(files,index,index+1);refreshQueue();saveState()}}.apply{isEnabled=!busy&&index<files.lastIndex},lp(dp(72),dp(32)).apply{rightMargin=dp(6)})
+   actions.addView(button("REMOVE"){if(!busy){files.removeAll{it.id==f.id};served.remove(f.id);refreshQueue();saveState()}},lp(dp(88),dp(32)))
+   row.addView(actions,lp(-1,dp(34)).apply{topMargin=dp(8)})
    queue.addView(row,lp(-1,-2).apply{topMargin=dp(7)})
   }
   send.isEnabled=files.isNotEmpty()&&!busy;clear.isEnabled=!busy
