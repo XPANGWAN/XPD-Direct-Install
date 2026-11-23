@@ -39,7 +39,7 @@ class MainActivity : Activity() {
   val brandText=LinearLayout(this).apply{orientation=1}
   brandText.addView(label("XPD",30f,Color.WHITE).apply{typeface=android.graphics.Typeface.create("sans-serif-black",android.graphics.Typeface.BOLD);letterSpacing=.10f})
   brandText.addView(label("DIRECT INSTALL",13f,silver).apply{letterSpacing=.22f})
-  brandText.addView(label("ANDROID PKG SENDER  •  v0.7.0",10f,muted).apply{letterSpacing=.08f;setPadding(1,5,0,0)})
+  brandText.addView(label("ANDROID PKG SENDER  •  v0.8.0",10f,muted).apply{letterSpacing=.08f;setPadding(1,5,0,0)})
   brand.addView(brandText,LinearLayout.LayoutParams(0,-2,1f))
   body.addView(brand,lp(-1,dp(82)).apply{bottomMargin=dp(22)})
   body.addView(sectionHeader("01  /  CONSOLE"))
@@ -48,7 +48,7 @@ class MainActivity : Activity() {
   ip=field("192.168.1.XX",false).apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL}
   connection.addView(label("CONSOLE IP ADDRESS",10f,muted),lp(-1,20));connection.addView(ip,lp(-1,52).apply{bottomMargin=12})
   port=field("12800",true).apply{setText("12800")};connection.addView(label("RECEIVER PORT",10f,muted),lp(-1,20));connection.addView(port,lp(-1,52))
-  check=button("CHECK CONNECTION"){checkReceiver()};connection.addView(check,lp(-1,50).apply{topMargin=14})
+  connection.addView(button("FIND CONSOLE ON WI-FI"){discoverConsole()},lp(-1,48).apply{topMargin=12})\n  check=button("CHECK CONNECTION"){checkReceiver()};connection.addView(check,lp(-1,50).apply{topMargin=8})
   connection.addView(label("RPI: 12800  /  GoldHEN status: 9090 (detection only)",10f,muted).apply{setPadding(2,12,2,0)})
   body.addView(connection,lp(-1,-2).apply{bottomMargin=dp(22)})
   body.addView(sectionHeader("02  /  YOUR PACKAGES"))
@@ -116,6 +116,19 @@ class MainActivity : Activity() {
  private fun button(s:String,primary:Boolean=false,action:()->Unit)=Button(this).apply{text=s;setTextColor(if(primary)Color.BLACK else silver);setBackgroundTintList(android.content.res.ColorStateList.valueOf(if(primary)silver else panel));setOnClickListener{action()}}
  private fun chooseFiles(){if(busy)return;val i=Intent(Intent.ACTION_OPEN_DOCUMENT).apply{addCategory(Intent.CATEGORY_OPENABLE);type="*/*";putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true)};startActivityForResult(i,41)}
  private fun validIp(s:String)=s.matches(Regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"))&&s.split(".").all{it.toIntOrNull()?.let { n -> n in 0..255 } == true}
+ private fun discoverConsole(){
+  status.text="Scanning your local Wi-Fi network…"
+  Thread{
+   val found=ConsoleDiscovery.scan(this){message->runOnUiThread{status.text=message}}
+   runOnUiThread{
+    when{
+     found.isEmpty()->status.text="No compatible receiver found. Confirm that the PS4/PS5 receiver is running on the same Wi-Fi."
+     found.size==1->{ip.setText(found[0].address);port.setText(found[0].port.toString());status.text="Found ${found[0].service} at ${found[0].address}:${found[0].port}. Check the connection before sending."}
+     else->{ip.setText(found[0].address);port.setText(found[0].port.toString());status.text="Found ${found.size} possible receivers. Selected ${found[0].address} (${found[0].service}); verify before sending."}
+    }
+   }
+  }.start()
+ }
  private fun checkReceiver(){
   val host=ip.text.toString().trim();val p=port.text.toString().toIntOrNull()
   if(!validIp(host)){status.text="Enter a valid PS4 IPv4 address.";return}
