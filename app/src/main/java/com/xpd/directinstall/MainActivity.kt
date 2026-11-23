@@ -30,26 +30,39 @@ class MainActivity : Activity() {
  private var busy=false
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi()}
  private fun buildUi(){
-  val root=LinearLayout(this).apply{orientation=1;setPadding(22,28,22,22);setBackgroundColor(bg)}
-  val scroll=ScrollView(this);val body=LinearLayout(this).apply{orientation=1}
-  body.addView(label("XPD  /  DIRECT INSTALL",21f,silver).apply{letterSpacing=.12f})
-  body.addView(label("ANDROID PKG SENDER",11f,muted).apply{setPadding(0,8,0,26)})
-  body.addView(title("PLAYSTATION CONNECTION"))
-  ip=field("PS4 IP address",false);body.addView(ip,lp(-1,54).apply{bottomMargin=10})
-  port=field("12800",true).apply{setText("12800")};body.addView(port,lp(-1,54))
-  check=button("CHECK REMOTE INSTALLER"){checkReceiver()};body.addView(check,lp(-1,52).apply{topMargin=12})
-  body.addView(label("GoldHEN and Remote Package Installer must be running on PS4.",11f,muted).apply{setPadding(2,8,0,0)})
-  body.addView(title("PACKAGE FILES").apply{setPadding(0,26,0,12)})
-  body.addView(button("ADD PKG FILES"){chooseFiles()},lp(-1,54))
-  fileInfo=label("No packages selected",12f,muted).apply{setPadding(2,12,0,8)};body.addView(fileInfo)
-  send=button("SEND TO PS4",true){sendFiles()}.apply{isEnabled=false};body.addView(send,lp(-1,56).apply{topMargin=12})
-  status=label("Ready • Add PKG files and check your PS4.",12f,muted).apply{setPadding(2,18,0,8)};body.addView(status)
-  body.addView(title("LOCAL FILE SERVER").apply{setPadding(0,22,0,8)})
-  serverInfo=label("Starts automatically when you send packages.",11f,muted);body.addView(serverInfo)
-  body.addView(title("TRANSFER QUEUE").apply{setPadding(0,22,0,10)})
-  queue=label("Your selected packages will appear here.",12f,muted);body.addView(queue)
-  body.addView(label("Keep XPD open and Remote Package Installer in the foreground during setup.",10f,muted).apply{gravity=Gravity.CENTER;setPadding(0,30,0,10)})
+  val root=LinearLayout(this).apply{orientation=1;setPadding(20,22,20,20);setBackgroundColor(bg)}
+  val scroll=ScrollView(this).apply{clipToPadding=false}
+  val body=LinearLayout(this).apply{orientation=1}
+  body.addView(label("XPD",30f,Color.WHITE).apply{typeface=android.graphics.Typeface.create("sans-serif-black",android.graphics.Typeface.BOLD);letterSpacing=.10f})
+  body.addView(label("DIRECT INSTALL",13f,silver).apply{letterSpacing=.22f;setPadding(2,0,0,4)})
+  body.addView(label("PS4 PACKAGE TRANSFER",10f,muted).apply{letterSpacing=.16f;setPadding(2,5,0,22)})
+  body.addView(sectionHeader("01  /  CONSOLE CONNECTION"))
+  val connection=card()
+  ip=field("PS4 IP address",false);connection.addView(label("CONSOLE IP ADDRESS",10f,muted),lp(-1,20));connection.addView(ip,lp(-1,52).apply{bottomMargin=12})
+  port=field("9090",true).apply{setText("9090")};connection.addView(label("REMOTE INSTALLER PORT",10f,muted),lp(-1,20));connection.addView(port,lp(-1,52))
+  check=button("TEST CONNECTION"){checkReceiver()};connection.addView(check,lp(-1,50).apply{topMargin=14})
+  connection.addView(label("Use the port configured by the receiver on your PS4. Default here: 9090.",10f,muted).apply{setPadding(2,10,2,0)})
+  body.addView(connection,lp(-1,-2).apply{bottomMargin=22})
+  body.addView(sectionHeader("02  /  PACKAGE QUEUE"))
+  val packages=card()
+  packages.addView(label("SELECT PKG FILES",10f,muted),lp(-1,20))
+  packages.addView(button("＋   ADD PACKAGE FILES"){chooseFiles()},lp(-1,52).apply{topMargin=8})
+  fileInfo=label("No packages selected",12f,muted).apply{setPadding(2,13,2,8)};packages.addView(fileInfo)
+  queue=label("Your selected packages will appear here.",11f,muted).apply{setPadding(2,4,2,4)};packages.addView(queue)
+  body.addView(packages,lp(-1,-2).apply{bottomMargin=22})
+  body.addView(sectionHeader("03  /  TRANSFER"))
+  val transfer=card()
+  status=label("READY  •  Add PKG files and test your PS4 connection.",12f,silver).apply{setPadding(2,4,2,12)};transfer.addView(status)
+  send=button("SEND TO PS4"){sendFiles()}.apply{isEnabled=false};transfer.addView(send,lp(-1,56))
+  serverInfo=label("Phone file server starts automatically on port 8080.",10f,muted).apply{setPadding(2,12,2,2)};transfer.addView(serverInfo)
+  body.addView(transfer,lp(-1,-2).apply{bottomMargin=18})
+  body.addView(label("Both devices must be connected to the same Wi-Fi network. Keep XPD open while the PS4 downloads the selected files. A successful request means accepted by the receiver, not confirmed installation.",10f,muted).apply{setPadding(4,4,4,22);gravity=Gravity.CENTER})
   scroll.addView(body);root.addView(scroll);setContentView(root)
+ }
+ private fun sectionHeader(s:String)=label(s,10f,silver).apply{letterSpacing=.14f;setPadding(2,0,2,10)}
+ private fun card()=LinearLayout(this).apply{
+  orientation=1;setPadding(16,16,16,16)
+  background=android.graphics.drawable.GradientDrawable().apply{setColor(panel);cornerRadius=18f;setStroke(1,Color.rgb(48,51,58))}
  }
  private fun label(s:String,n:Float,c:Int)=TextView(this).apply{text=s;textSize=n;setTextColor(c)}
  private fun title(s:String)=label(s,12f,silver).apply{letterSpacing=.08f}
