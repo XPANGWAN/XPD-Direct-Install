@@ -31,7 +31,7 @@ class MainActivity : Activity() {
  private var server:PkgHttpServer?=null; private lateinit var ip:EditText; private lateinit var port:EditText
  private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout; private lateinit var queueSearch:EditText
  private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var stopServerButton:Button; private lateinit var pauseButton:Button; private lateinit var retryButton:Button; private lateinit var ps5WebPort:EditText; private lateinit var installPs5ReceiverButton:Button; private lateinit var serverInfo:TextView
- @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; @Volatile private var paused=false; private val retryEntries=mutableListOf<PkgEntry>(); private val expandedFamilies=mutableSetOf<String>(); private var filterRole="ALL"
+ @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; @Volatile private var paused=false; @Volatile private var ps5ReceiverBusy=false; private val retryEntries=mutableListOf<PkgEntry>(); private val expandedFamilies=mutableSetOf<String>(); private var filterRole="ALL"
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();server=TransferRuntime.server;stopServerButton.isEnabled=server!=null;if(server!=null)serverInfo.text="Local file server active on port 9898.";restoreState();if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),9098)}
  private fun buildUi(){
   val root=LinearLayout(this).apply{orientation=1;setPadding(20,22,20,20);setBackgroundColor(bg)}
@@ -240,6 +240,7 @@ class MainActivity : Activity() {
  }
  private fun sendFiles(retryOnly:Boolean=false){
   if(busy)return
+  if(ps5ReceiverBusy){status.text="Wait for PS5 receiver deployment to finish.";return}
   if(scanning){status.text="Wait for the folder scan to finish.";return}
   val queueToSend=if(retryOnly)retryEntries.toList() else files.toList()
   if(queueToSend.isEmpty()){status.text=if(retryOnly)"There are no failed or pending packages to retry." else "Add at least one .pkg file.";return}
@@ -326,7 +327,7 @@ class MainActivity : Activity() {
   val webPort=ps5WebPort.text.toString().toIntOrNull()
   if(!validIp(host)){status.text="Enter the PS5 IPv4 address first.";return}
   if(webPort==null||webPort !in 1..65535){status.text="Enter a valid Payload Manager web port (default 8084).";return}
-  installPs5ReceiverButton.isEnabled=false
+  installPs5ReceiverButton.isEnabled=false;ps5ReceiverBusy=true
   status.text="Preparing the PS5 receiver payload…"
   Thread{
    var message=""
@@ -354,7 +355,7 @@ class MainActivity : Activity() {
      message="PS5 receiver launched successfully. It listens on port 12800; you can now send PS5 PKG files."
     }finally{launch.disconnect()}
    }catch(e:Exception){message="Could not install PS5 receiver: ${e.message?: "network error"}"}
-   runOnUiThread{status.text=message;installPs5ReceiverButton.isEnabled=true}
+   runOnUiThread{status.text=message;ps5ReceiverBusy=false;installPs5ReceiverButton.isEnabled=true}
   }.start()
  }
  private fun stopTransferServer(){
@@ -411,7 +412,7 @@ class MainActivity : Activity() {
    if(familyTotal>1){
     val expanded=familyKey in expandedFamilies
     val headerText="${if(expanded)"▾" else "▸"}  GAME FAMILY  •  $familyTitleId  •  $familyTotal PACKAGES  •  ${familyItems.size} SHOWN"
-    queue.addView(button(headerText){if(expanded)expandedFamilies.remove(familyKey)else expandedFamilies.add(familyKey);refreshQueue()},lp(-1,dp(42)).apply{topMargin=dp(8)})
+    queue.addView(button(headerText){if(expanded)expandedFamilies.remove(familyKey)else expandedFamilies.add(familyKey);refreshQueue()}.apply{isEnabled=!busy},lp(-1,dp(42)).apply{topMargin=dp(8)})
    }
    if(familyTotal<=1||familyKey in expandedFamilies){
     familyItems.forEach{(index,f)->
