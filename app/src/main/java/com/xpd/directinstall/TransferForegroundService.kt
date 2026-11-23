@@ -79,7 +79,7 @@ class TransferForegroundService : Service() {
         }
         try {
             if (wifiLock?.isHeld != true) {
-                val wifi = applicationContext.getSystemService(WIFI_SERVICE) as? WifiManager
+                val wifi = applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as? WifiManager
                 wifiLock = wifi?.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "XPD:PkgTransferWifi")?.apply {
                     setReferenceCounted(false)
                     acquire()
