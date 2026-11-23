@@ -84,7 +84,8 @@ object GoldHenInstaller {
                     return GoldHenResult(false, "Payload was sent, but the PS4 did not call back. Check that the phone and PS4 can reach each other on the same LAN.")
                 }
                 callback.use { client ->
-                    if (client.inetAddress.hostAddress != consoleIp) {
+                    val expectedConsoleIp = try { InetAddress.getByName(consoleIp).hostAddress } catch (_: Exception) { consoleIp }
+                    if (client.inetAddress.hostAddress != expectedConsoleIp) {
                         return GoldHenResult(false, "Callback came from an unexpected LAN device.")
                     }
                     client.tcpNoDelay = true
