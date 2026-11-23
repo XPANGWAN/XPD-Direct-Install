@@ -66,7 +66,7 @@ class MainActivity : Activity() {
   val transfer=card()
   status=label("READY  •  Select PKG files to begin.",12f,silver).apply{setPadding(2,dp(4),2,dp(14))};transfer.addView(status)
   send=button("START TRANSFER",true){sendFiles()}.apply{isEnabled=false};transfer.addView(send,lp(-1,dp(56)))
-  serverInfo=label("Local phone server  •  Port 8080",10f,muted).apply{setPadding(2,dp(12),2,2)};transfer.addView(serverInfo)
+  serverInfo=label("Local phone server  •  Port 9898",10f,muted).apply{setPadding(2,dp(12),2,2)};transfer.addView(serverInfo)
   body.addView(transfer,lp(-1,-2).apply{bottomMargin=dp(18)})
   body.addView(label("Both devices must be connected to the same Wi-Fi network. Keep XPD open while the PS4 downloads the selected files. A successful request means accepted by the receiver, not confirmed installation.",10f,muted).apply{setPadding(4,4,4,22);gravity=Gravity.CENTER})
   scroll.addView(body);root.addView(scroll);setContentView(root)
@@ -223,7 +223,7 @@ class MainActivity : Activity() {
  }
  private fun localIp(targetIp:String?=null):String? {
   return try {
-   val target=targetIp?.let{Inet4Address.getByName(it).address}
+   val target=targetIp?.let{java.net.InetAddress.getByName(it).address}
    val all=NetworkInterface.getNetworkInterfaces()?:return null
    val interfaces=Collections.list(all).filter{it.isUp&&!it.isLoopback}
    if(target!=null){
