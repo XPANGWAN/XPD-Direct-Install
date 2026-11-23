@@ -98,11 +98,11 @@ class MainActivity : Activity() {
   packages.addView(label("Selected files",10f,muted).apply{setPadding(2,dp(13),2,dp(3))})
   fileInfo=label("No files selected yet.",11f,muted).apply{setPadding(2,0,2,dp(5))}
   packages.addView(fileInfo)
+  val fileTools=LinearLayout(this).apply{orientation=1;visibility=View.GONE}
   val toolsToggle=button("MORE FILE OPTIONS  +"){
    fileTools.visibility=if(fileTools.visibility==View.VISIBLE)View.GONE else View.VISIBLE
   }
   packages.addView(toolsToggle,lp(-1,dp(36)).apply{topMargin=dp(4)})
-  val fileTools=LinearLayout(this).apply{orientation=1;visibility=View.GONE}
   fileTools.addView(button("CHOOSE A FOLDER"){chooseFolder()}.apply{setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder_open,0,0,0);compoundDrawablePadding=dp(7)},lp(-1,dp(40)).apply{topMargin=dp(6)})
   queueSearch=field("Search games or title ID",false).apply{addTextChangedListener(object:android.text.TextWatcher{
    override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){}
