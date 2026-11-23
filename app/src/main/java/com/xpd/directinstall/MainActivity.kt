@@ -249,13 +249,13 @@ class MainActivity : Activity() {
   }
   window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
   serverInfo.text="Phone file server: http://$local:9898/  •  Keep XPD open"
-  busy=true;send.isEnabled=false;clear.isEnabled=false
+  busy=true;refreshQueue()
   status.text=if(goldHen)"Preparing GoldHEN installer…" else "Submitting packages to Remote Package Installer…"
   Thread{
    var message=""
    try{
-    for((index,entry) in files.withIndex()){
-     runOnUiThread{status.text="Sending ${index+1}/${files.size}: ${entry.metadata?.displayTitle?:entry.name}"}
+    for((index,entry) in queueSnapshot.withIndex()){
+     runOnUiThread{status.text="Sending ${index+1}/${queueSnapshot.size}: ${entry.metadata?.displayTitle?:entry.name}"}
      if(goldHen){
       val result=GoldHenInstaller.install(this,host,local,entry,9898)
       if(!result.success){message="Package ${index+1} failed: ${result.message}";break}
@@ -286,8 +286,7 @@ class MainActivity : Activity() {
    runOnUiThread{
     status.text=message
     busy=false
-    send.isEnabled=files.isNotEmpty()
-    clear.isEnabled=true
+    refreshQueue()
    }
   }.start()
  }
