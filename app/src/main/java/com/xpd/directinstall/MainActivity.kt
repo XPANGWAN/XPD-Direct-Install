@@ -17,6 +17,7 @@ import java.net.HttpURLConnection
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.net.URL
+import java.net.Socket
 import java.util.Collections
 import java.util.Locale
 import java.lang.ref.WeakReference
@@ -27,7 +28,7 @@ class MainActivity : Activity() {
  private val silver=Color.rgb(205,210,218); private val muted=Color.rgb(145,151,160)
  private val panel=Color.rgb(27,29,34); private val bg=Color.rgb(12,13,16)
  private val files=mutableListOf<PkgEntry>(); private val served=ConcurrentHashMap<String,Long>(); private val progressViews=ConcurrentHashMap<String,ProgressBar>(); private val progressLabels=ConcurrentHashMap<String,TextView>()
- private var server:PkgHttpServer?=null; private lateinit var ip:EditText; private lateinit var port:EditText
+ private var server:PkgHttpServer?=null; private var goldHenBridge:GoldHenPayloadBridge?=null; private lateinit var ip:EditText; private lateinit var port:EditText
  private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout; private lateinit var queueSearch:EditText
  private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var pauseButton:Button
  @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; @Volatile private var paused=false; private val retryEntries=mutableListOf<PkgEntry>()
@@ -133,7 +134,7 @@ class MainActivity : Activity() {
  private fun restoreState(){
   val savedIp=prefs().getString("console_ip","")?:""
   if(savedIp.isNotEmpty())ip.setText(savedIp)
-  port.setText("12800")
+  port.setText("9090")
   val raw=prefs().getString("pkg_uris","[]")?:"[]"
   try{
    val arr=JSONArray(raw)
@@ -236,13 +237,16 @@ class MainActivity : Activity() {
  private fun checkReceiver(){
   val host=ip.text.toString().trim()
   if(!validIp(host)){status.text="Enter a valid PlayStation IPv4 address.";return}
-  check.isEnabled=false;status.text="Checking PS4 Remote Package Installer on port 12800…"
-  Thread{val detected=detectReceiverPort(host);runOnUiThread{if(detected!=null){port.setText(detected.toString());status.text="Receiver detected on port $detected."}else status.text="PS4 Remote Package Installer was not detected on port 12800.";check.isEnabled=true}}.start()
+  check.isEnabled=false;status.text="Checking GoldHEN 9090 and Remote Package Installer 12800…"
+  Thread{val detected=detectReceiverPort(host);runOnUiThread{if(detected!=null){port.setText(detected.toString());status.text="Receiver detected on port $detected."}else status.text="No GoldHEN BinLoader (9090) or RPI (12800) receiver was detected.";check.isEnabled=true}}.start()
  }
  private fun detectReceiverPort(host:String):Int?{
+  try{
+   Socket().use{socket->socket.connect(java.net.InetSocketAddress(host,9090),1800);return 9090}
+  }catch(_:Exception){}
   val rpi=probeHttp(host,12800,"/api","RPI")
   if(rpi.contains("Remote Package Installer detected",true))return 12800
-    return null
+  return null
  }
  private fun probeHttp(host:String,p:Int,path:String,kind:String):String{
   var conn:HttpURLConnection?=null
@@ -272,18 +276,19 @@ class MainActivity : Activity() {
   val host=ip.text.toString().trim()
   if(!validIp(host)){status.text="Enter a valid PlayStation IPv4 address.";return}
   send.isEnabled=false
-  status.text="Checking PS4 Remote Package Installer on port 12800…"
+  status.text="Checking GoldHEN 9090 and RPI 12800…"
   Thread{
    val detected=detectReceiverPort(host)
    runOnUiThread{
     send.isEnabled=true
-    if(detected==null){status.text="Remote Package Installer is not responding. Start it on the PS4 and retry.";return@runOnUiThread}
+    if(detected==null){status.text="GoldHEN BinLoader (9090) or Remote Package Installer (12800) was not detected. Start GoldHEN and retry.";return@runOnUiThread}
     port.setText(detected.toString())
     beginTransfer(queueToSend,host,detected)
    }
   }.start()
  }
  private fun beginTransfer(queueToSend:List<PkgEntry>,host:String,p:Int){
+  if(p==9090){beginGoldHenTransfer(queueToSend,host);return}
   val local=localIp(host)?:run{status.text="Could not find a phone IPv4 address on the same LAN as the console.";return}
   val activityRef=WeakReference(this)
   val queueSnapshot=queueToSend
@@ -351,11 +356,65 @@ class MainActivity : Activity() {
    }
   }.start()
  }
+ private fun beginGoldHenTransfer(queueToSend:List<PkgEntry>,host:String){
+  val local=localIp(host)?:run{status.text="Could not find the phone IPv4 address on the same Wi-Fi network.";return}
+  val activityRef=WeakReference(this)
+  val queueSnapshot=queueToSend.toList()
+  val servedCounts=served
+  val lastUiRefresh=AtomicLong(0L)
+  val cleanupTriggered=AtomicLong(0L)
+  val s=PkgHttpServer(contentResolver,9898,queueSnapshot,publicHost=local,onBytes={id,n->
+   servedCounts.compute(id){_,old->((old?:0L)+n).let{v->val size=queueSnapshot.firstOrNull{it.id==id}?.size?:-1L;if(size>0)v.coerceAtMost(size)else v}}
+   if(queueSnapshot.all{entry->entry.size>0L&&(servedCounts[entry.id]?:0L)>=entry.size}&&cleanupTriggered.compareAndSet(0L,1L)){
+    activityRef.get()?.runOnUiThread{activityRef.get()?.stopLocalFileServer()}
+   }
+   val now=android.os.SystemClock.uptimeMillis()
+   val previous=lastUiRefresh.get()
+   if(now-previous>=200&&lastUiRefresh.compareAndSet(previous,now)){
+    activityRef.get()?.runOnUiThread{activityRef.get()?.updatePackageProgress(id)}
+   }
+  },onServerError={message->activityRef.get()?.runOnUiThread{activityRef.get()?.status?.text=message}})
+  TransferRuntime.server?.stop();TransferRuntime.server=null;server?.stop();server=null
+  if(!s.start()){status.text="Could not start the PKG web server on port 9898.";return}
+  server=s;TransferRuntime.server=s
+  try{
+   val serviceIntent=Intent(this,TransferForegroundService::class.java).setAction(TransferForegroundService.ACTION_START)
+   if(android.os.Build.VERSION.SDK_INT>=26)startForegroundService(serviceIntent)else startService(serviceIntent)
+  }catch(e:Exception){
+   s.stop();server=null;TransferRuntime.server=null
+   status.text="Could not start transfer service: ${e.message?: "service error"}";return
+  }
+  retryEntries.clear()
+  window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+  transferCancelled=false;paused=false;busy=true
+  pauseButton.visibility=View.VISIBLE;pauseButton.isEnabled=true
+  pauseButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_pause,0,0,0)
+  refreshQueue()
+  status.text="Starting XPD installer through GoldHEN BinLoader 9090…"
+  val bridge=GoldHenPayloadBridge(contentResolver,queueSnapshot,local,
+   onStatus={message->activityRef.get()?.runOnUiThread{activityRef.get()?.status?.text=message}},
+   onFinished={ok,message->activityRef.get()?.runOnUiThread{
+    val activity=activityRef.get()?:return@runOnUiThread
+    activity.status.text=message
+    activity.busy=false;activity.paused=false
+    activity.pauseButton.isEnabled=false;activity.pauseButton.visibility=View.GONE
+    if(!ok){
+     activity.retryEntries.clear();activity.retryEntries.addAll(queueSnapshot)
+     activity.stopTransferServer()
+    }
+    activity.refreshQueue()
+   }}
+  )
+  goldHenBridge=bridge
+  Thread{
+   bridge.start(host)
+  }.apply{name="XPD-GoldHEN-Launch";isDaemon=true;start()}
+ }
  private fun stopLocalFileServer(){
   TransferRuntime.server?.stop();TransferRuntime.server=null;server=null
   try{startService(Intent(this,TransferForegroundService::class.java).setAction(TransferForegroundService.ACTION_STOP))}catch(_:Exception){}
   window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-  status.text="All selected PKG files were delivered to the console."
+  status.text="PS4 downloaded all selected PKG data. Check the installation queue on the console."
   refreshQueue()
  }
  private fun stopTransferServer(){
@@ -364,6 +423,7 @@ class MainActivity : Activity() {
   try{startService(Intent(this,TransferForegroundService::class.java).setAction(TransferForegroundService.ACTION_STOP))}catch(_:Exception){}
   server=null
   window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+  goldHenBridge?.stop();goldHenBridge=null
   status.text="Transfer server stopped."
   refreshQueue()
  }
