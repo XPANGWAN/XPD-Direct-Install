@@ -38,7 +38,7 @@ class MainActivity : Activity() {
   val scroll=ScrollView(this).apply{clipToPadding=false;isFillViewport=true;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS}
   val body=LinearLayout(this).apply{orientation=1}
   val brand=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
-  val mark=ImageView(this).apply{setImageResource(R.drawable.xpd_wolf_mark);scaleType=ImageView.ScaleType.FIT_CENTER}
+  val mark=ImageView(this).apply{setImageResource(R.drawable.ic_xpd_mark);scaleType=ImageView.ScaleType.FIT_CENTER;contentDescription="XPD"}
   brand.addView(mark,lp(dp(54),dp(54)).apply{rightMargin=dp(12)})
   val brandText=LinearLayout(this).apply{orientation=1}
   brandText.addView(label("XPD",27f,Color.WHITE).apply{typeface=android.graphics.Typeface.create("sans-serif-black",android.graphics.Typeface.BOLD);letterSpacing=.10f})
@@ -47,10 +47,10 @@ class MainActivity : Activity() {
   brand.addView(label("v0.9.3",10f,muted))
   body.addView(brand,lp(-1,dp(64)).apply{bottomMargin=dp(20)})
 
-  body.addView(label("Send games to your PlayStation",21f,Color.WHITE).apply{typeface=android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL);setPadding(0,0,0,dp(5))})
-  body.addView(label("Connect, choose your PKG files, then send.",12f,muted).apply{setPadding(0,0,0,dp(20))})
+  body.addView(label("Send games to PlayStation",19f,Color.WHITE).apply{typeface=android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL);setPadding(0,0,0,dp(5))})
+  body.addView(label("Three simple steps. Keep your phone and console on the same Wi-Fi.",12f,muted).apply{setPadding(0,0,0,dp(20))})
 
-  body.addView(sectionHeader("01  •  CONNECT"))
+  body.addView(sectionHeader("1. CONNECT"))
   val connection=card()
   connection.addView(label("PlayStation address",14f,silver).apply{typeface=android.graphics.Typeface.DEFAULT_BOLD},lp(-1,dp(24)))
   connection.addView(label("Your phone and console must use the same Wi-Fi network.",11f,muted).apply{setPadding(0,dp(3),0,dp(12))})
@@ -66,9 +66,9 @@ class MainActivity : Activity() {
   portCol.addView(port,lp(-1,dp(50)))
   addressRow.addView(portCol,LinearLayout.LayoutParams(dp(94),-2))
   connection.addView(addressRow)
-  check=button("TEST CONNECTION"){checkReceiver()}
+  check=button("TEST CONNECTION"){checkReceiver()}.apply{setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_link,0,0,0);compoundDrawablePadding=dp(8)}
   connection.addView(check,lp(-1,dp(48)).apply{topMargin=dp(12)})
-  connection.addView(button("FIND MY PLAYSTATION"){discoverConsole()},lp(-1,dp(44)).apply{topMargin=dp(8)})
+  connection.addView(button("FIND MY PLAYSTATION"){discoverConsole()}.apply{setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_search,0,0,0);compoundDrawablePadding=dp(8)},lp(-1,dp(44)).apply{topMargin=dp(8)})
   val advancedToggle=button("PS5 RECEIVER SETUP  +"){
    val show=ps5Advanced.visibility!=View.VISIBLE
    ps5Advanced.visibility=if(show)View.VISIBLE else View.GONE
@@ -84,18 +84,18 @@ class MainActivity : Activity() {
   connection.addView(ps5Advanced,lp(-1,-2))
   body.addView(connection,lp(-1,-2).apply{bottomMargin=dp(22)})
 
-  body.addView(sectionHeader("02  •  SELECT PKG FILES"))
+  body.addView(sectionHeader("2. CHOOSE FILES"))
   val packages=card()
   val queueTop=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
   val queueHeading=LinearLayout(this).apply{orientation=1}
   queueHeading.addView(label("Your package queue",14f,silver).apply{typeface=android.graphics.Typeface.DEFAULT_BOLD})
   queueHeading.addView(label("Add one or more PlayStation PKG files.",11f,muted).apply{setPadding(0,dp(3),0,0)})
   queueTop.addView(queueHeading,LinearLayout.LayoutParams(0,-2,1f))
-  clear=button("CLEAR"){if(!busy){files.clear();retryEntries.clear();served.clear();refreshQueue();saveState()}}.apply{isEnabled=!busy}
+  clear=button("CLEAR"){if(!busy){files.clear();retryEntries.clear();served.clear();refreshQueue();saveState()}}.apply{isEnabled=!busy;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_trash,0,0,0);compoundDrawablePadding=dp(5)}
   queueTop.addView(clear,lp(dp(76),dp(36)))
   packages.addView(queueTop)
-  packages.addView(button("＋  CHOOSE PKG FILES",true){chooseFiles()},lp(-1,dp(52)).apply{topMargin=dp(14)})
-  packages.addView(button("CHOOSE A FOLDER INSTEAD"){chooseFolder()},lp(-1,dp(42)).apply{topMargin=dp(7)})
+  packages.addView(button("CHOOSE PKG FILES",true){chooseFiles()}.apply{setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder,0,0,0);compoundDrawablePadding=dp(9)},lp(-1,dp(52)).apply{topMargin=dp(12)})
+  packages.addView(button("CHOOSE A FOLDER"){chooseFolder()}.apply{setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder_open,0,0,0);compoundDrawablePadding=dp(8)},lp(-1,dp(42)).apply{topMargin=dp(7)})
   fileInfo=label("No files selected yet.",11f,muted).apply{setPadding(2,dp(13),2,dp(5))}
   packages.addView(fileInfo)
   queueSearch=field("Search by game, file or title ID",false).apply{addTextChangedListener(object:android.text.TextWatcher{
@@ -114,12 +114,12 @@ class MainActivity : Activity() {
   packages.addView(queue)
   body.addView(packages,lp(-1,-2).apply{bottomMargin=dp(22)})
 
-  body.addView(sectionHeader("03  •  SEND"))
+  body.addView(sectionHeader("3. SEND"))
   val transfer=card()
   transfer.addView(label("Ready to install?",15f,silver).apply{typeface=android.graphics.Typeface.DEFAULT_BOLD})
   status=label("Choose PKG files to get started.",12f,muted).apply{setPadding(0,dp(6),0,dp(14))}
   transfer.addView(status)
-  send=button("SEND TO PLAYSTATION",true){sendFiles(false)}.apply{isEnabled=false}
+  send=button("SEND TO PLAYSTATION",true){sendFiles(false)}.apply{isEnabled=false;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_send,0,0,0);compoundDrawablePadding=dp(8)}
   transfer.addView(send,lp(-1,dp(54)))
   pauseButton=button("PAUSE TRANSFER"){togglePause()}.apply{isEnabled=false}
   transfer.addView(pauseButton,lp(-1,dp(42)).apply{topMargin=dp(8)})
@@ -171,9 +171,9 @@ class MainActivity : Activity() {
  }
  override fun onResume(){super.onResume();if(::stopServerButton.isInitialized){server=TransferRuntime.server;stopServerButton.isEnabled=server!=null;if(server==null)serverInfo.text="Local file server stopped.";refreshQueue()}}
  override fun onPause(){saveState();super.onPause()}
- private fun sectionHeader(s:String)=label(s,10f,silver).apply{letterSpacing=.14f;setPadding(2,0,2,10)}
+ private fun sectionHeader(s:String)=label(s,10f,silver).apply{letterSpacing=.12f;setPadding(2,0,2,8)}
  private fun card()=LinearLayout(this).apply{
-  orientation=1;setPadding(16,16,16,16)
+  orientation=1;setPadding(14,14,14,14)
   background=android.graphics.drawable.GradientDrawable().apply{setColor(panel);cornerRadius=18f;setStroke(1,Color.rgb(48,51,58))}
  }
  private fun label(s:String,n:Float,c:Int)=TextView(this).apply{text=s;textSize=n;setTextColor(c);includeFontPadding=false;setLineSpacing(dp(2).toFloat(),1f)}
