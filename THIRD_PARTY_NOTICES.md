@@ -1,5 +1,9 @@
 # Third-party notices
 
+## PS5 package receiver
+
+The file app/src/main/assets/pkg-receiver.elf.b64 contains the Base64-encoded droid/pkg-receiver.elf binary from [Loopayeh/pkg-sender](https://github.com/Loopayeh/pkg-sender), upstream commit 73804c41c079b1d32c60bf3fd555f90fba1af2e4 (blob 6131e39f7f2a41c18e247d7d902ab98018ac937c). It is distributed under the repository's MIT License and is decoded in memory before upload to the PS5 Payload Manager. The binary is not modified.
+
 ## PS4 DPI GoldHEN installer payload
 
 The file `app/src/main/assets/ps4_dpi_payload.bin.b64` contains the `ps4_dpi_payload.bin` binary from [Loopayeh/pkg-sender](https://github.com/Loopayeh/pkg-sender), commit source `main` at the time of import. The binary is distributed under the MIT License. It is used unmodified; XPD's runtime patches only the callback address and port marker in memory before sending it to the console.
