@@ -24,6 +24,13 @@ Native Android application for sending PlayStation 4 PKG files over a local netw
 5. Start the queue and keep the phone file server active while the PS4 downloads.
 6. A successful receiver response means the package request was accepted; it does not guarantee installation completion.
 
+## Port separation
+
+- `12800` is the Remote Package Installer HTTP interface. XPD sends the package URL and metadata to its `/api/install` endpoint.
+- `9090` is GoldHEN's BinLoader socket. It accepts a compatible binary payload; it is not an HTTP package-install endpoint and must not receive a raw `.pkg` file.
+- Detecting an open BinLoader socket does not prove that a compatible XPD installer payload is loaded or that package installation is available.
+- XPD currently does not ship an original PS4 installer payload, so the supported package-transfer path remains a separately running RPI receiver on port `12800`.
+
 ## Architecture
 
 XPD uses the PS4 Remote Package Installer HTTP interface directly. It no longer bundles or injects a third-party PS4 or PS5 payload. A compatible RPI receiver must already be running on the PS4.
