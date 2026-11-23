@@ -29,10 +29,10 @@ class MainActivity : Activity() {
  private val panel=Color.rgb(27,29,34); private val bg=Color.rgb(12,13,16)
  private val files=mutableListOf<PkgEntry>(); private val served=ConcurrentHashMap<String,Long>(); private val progressViews=ConcurrentHashMap<String,ProgressBar>(); private val progressLabels=ConcurrentHashMap<String,TextView>()
  private var server:PkgHttpServer?=null; private lateinit var ip:EditText; private lateinit var port:EditText
- private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout; private lateinit var queueSearch:EditText; private lateinit var ps5Advanced:LinearLayout
- private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var stopServerButton:Button; private lateinit var pauseButton:Button; private lateinit var retryButton:Button; private lateinit var ps5WebPort:EditText; private lateinit var installPs5ReceiverButton:Button; private lateinit var serverInfo:TextView
- @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; @Volatile private var paused=false; @Volatile private var ps5ReceiverBusy=false; private val retryEntries=mutableListOf<PkgEntry>(); private val expandedFamilies=mutableSetOf<String>(); private var filterRole="ALL"
- override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();server=TransferRuntime.server;stopServerButton.isEnabled=server!=null;if(server!=null)serverInfo.text="Local file server active on port 9898.";restoreState();if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),9098)}
+ private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout; private lateinit var queueSearch:EditText
+ private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var pauseButton:Button
+ @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; @Volatile private var paused=false; @Volatile private var ps5ReceiverBusy=false; private val retryEntries=mutableListOf<PkgEntry>()
+ override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();server=TransferRuntime.server;restoreState();if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),9098)}
  private fun buildUi(){
   val root=LinearLayout(this).apply{
    orientation=1
@@ -59,57 +59,19 @@ class MainActivity : Activity() {
   root.addView(toolbar,lp(-1,dp(44)).apply{bottomMargin=dp(10)})
 
   val connection=card()
-  val connectionBody=LinearLayout(this).apply{orientation=1}
   val connectionHead=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
   val connectionTitles=LinearLayout(this).apply{orientation=1}
-  connectionTitles.addView(label("PLAYSTATION",11f,silver).apply{
-   typeface=android.graphics.Typeface.DEFAULT_BOLD;letterSpacing=.12f
-  })
+  connectionTitles.addView(label("PLAYSTATION",11f,silver).apply{typeface=android.graphics.Typeface.DEFAULT_BOLD;letterSpacing=.12f})
   connectionTitles.addView(label("Connect your console",13f,Color.WHITE).apply{setPadding(0,dp(3),0,0)})
-  connectionHead.addView(connectionTitles,LinearLayout.LayoutParams(0,-2,1f))
-  val connectionToggle=button("HIDE  −"){
-   val show=connectionBody.visibility!=View.VISIBLE
-   connectionBody.visibility=if(show)View.VISIBLE else View.GONE
-  }
-  connectionHead.addView(connectionToggle,lp(dp(86),dp(34)))
-  connection.addView(connectionHead)
-
-  ip=field("Console IP address",false).apply{
-   inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-  }
-  port=field("12800",true).apply{setText("12800")}
-  val addressRow=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
-  val ipCol=LinearLayout(this).apply{orientation=1}
-  ipCol.addView(label("IP ADDRESS",9f,muted).apply{setPadding(0,0,0,dp(4))})
-  ipCol.addView(ip,lp(-1,dp(46)))
-  addressRow.addView(ipCol,LinearLayout.LayoutParams(0,-2,1f).apply{rightMargin=dp(8)})
-  val portCol=LinearLayout(this).apply{orientation=1}
-  portCol.addView(label("PORT",9f,muted).apply{setPadding(0,0,0,dp(4))})
-  portCol.addView(port,lp(-1,dp(46)))
-  addressRow.addView(portCol,lp(dp(78),-2))
+  connectionHead.addView(connectionTitles,LinearLayout.LayoutParams(0,-2,1f));connection.addView(connectionHead)
+  ip=field("Console IP address",false).apply{inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS}
+  port=field("Auto",true).apply{setText("12800");visibility=View.GONE}
   check=button("TEST",true){checkReceiver()}
-  addressRow.addView(check,lp(dp(68),dp(46)).apply{leftMargin=dp(8);topMargin=dp(13)})
-  connectionBody.addView(addressRow,lp(-1,-2).apply{topMargin=dp(12)})
-  connectionBody.addView(button("FIND CONSOLE"){discoverConsole()},lp(-1,dp(40)).apply{topMargin=dp(8)})
-  ps5Advanced=LinearLayout(this).apply{
-   orientation=1;visibility=View.GONE;setPadding(0,dp(10),0,0)
-  }
-  ps5Advanced.addView(label("PS5 RECEIVER SETUP",9f,silver).apply{
-   typeface=android.graphics.Typeface.DEFAULT_BOLD;letterSpacing=.10f
-  })
-  ps5Advanced.addView(label("Open Payload Manager on your PS5 before installing the receiver.",10f,muted).apply{
-   setPadding(0,dp(4),0,dp(6));maxLines=2
-  })
-  ps5WebPort=field("8084",true).apply{setText("8084")}
-  ps5Advanced.addView(label("PAYLOAD MANAGER PORT",9f,muted).apply{setPadding(0,0,0,dp(4))})
-  ps5Advanced.addView(ps5WebPort,lp(-1,dp(42)))
-  installPs5ReceiverButton=button("INSTALL PS5 RECEIVER",true){installPs5Receiver()}
-  ps5Advanced.addView(installPs5ReceiverButton,lp(-1,dp(44)).apply{topMargin=dp(8)})
-  connectionBody.addView(ps5Advanced)
-  connectionBody.addView(button("PS5 RECEIVER OPTIONS  +"){
-   ps5Advanced.visibility=if(ps5Advanced.visibility==View.VISIBLE)View.GONE else View.VISIBLE
-  },lp(-1,dp(36)).apply{topMargin=dp(7)})
-  connection.addView(connectionBody)
+  val addressRow=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
+  addressRow.addView(ip,LinearLayout.LayoutParams(0,dp(46),1f).apply{rightMargin=dp(8)})
+  addressRow.addView(check,lp(dp(76),dp(46)))
+  connection.addView(addressRow,lp(-1,-2).apply{topMargin=dp(12)})
+  connection.addView(button("FIND CONSOLE"){discoverConsole()},lp(-1,dp(40)).apply{topMargin=dp(8)})
   root.addView(connection,lp(-1,-2).apply{bottomMargin=dp(14)})
 
   val libraryHeader=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
@@ -120,12 +82,8 @@ class MainActivity : Activity() {
   fileInfo=label("0 packages",10f,muted).apply{setPadding(0,dp(2),0,0)}
   libraryTitles.addView(fileInfo)
   libraryHeader.addView(libraryTitles,LinearLayout.LayoutParams(0,-2,1f))
-  clear=button("CLEAR"){if(!busy){files.clear();retryEntries.clear();served.clear();refreshQueue();saveState()}}.apply{
-   isEnabled=!busy
-   setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_trash,0,0,0)
-   compoundDrawablePadding=dp(4)
-  }
-  libraryHeader.addView(clear,lp(dp(78),dp(36)))
+  clear=button("",false){if(!busy){files.clear();retryEntries.clear();served.clear();refreshQueue();saveState()}}.apply{contentDescription="Clear selected files";setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_trash,0,0,0)}
+  libraryHeader.addView(clear,lp(dp(42),dp(36)))
   root.addView(libraryHeader,lp(-1,-2).apply{bottomMargin=dp(8)})
 
   val addRow=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
@@ -150,13 +108,6 @@ class MainActivity : Activity() {
    })
   }
   root.addView(queueSearch,lp(-1,dp(42)).apply{topMargin=dp(8)})
-  val filterRow=LinearLayout(this).apply{orientation=0}
-  listOf("ALL","BASE","UPDATE","DLC").forEach{tag->
-   filterRow.addView(button(tag,tag=="ALL"){filterRole=tag;refreshQueue()},
-    LinearLayout.LayoutParams(0,dp(34),1f).apply{rightMargin=dp(4)})
-  }
-  root.addView(filterRow,lp(-1,-2).apply{topMargin=dp(6)})
-
   val listScroll=ScrollView(this).apply{
    clipToPadding=false;isFillViewport=false;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS
   }
@@ -167,45 +118,20 @@ class MainActivity : Activity() {
   listScroll.addView(queue)
   root.addView(listScroll,LinearLayout.LayoutParams(-1,0,1f).apply{topMargin=dp(7)})
 
-  send=button("SEND QUEUE",true){sendFiles(false)}.apply{
-   isEnabled=false;textSize=15f
-   setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_send,0,0,0)
-   compoundDrawablePadding=dp(8)
-  }
+  send=button("SEND",true){sendFiles(retryEntries.isNotEmpty())}.apply{isEnabled=false;textSize=15f;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_send,0,0,0);compoundDrawablePadding=dp(8)}
   root.addView(send,lp(-1,dp(54)).apply{topMargin=dp(10)})
 
-  val statusCard=card().apply{setPadding(dp(13),dp(10),dp(13),dp(10))}
-  status=label("Add PKG files, connect, then send.",11f,muted).apply{
-   maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END
-  }
-  statusCard.addView(status)
-  val actionRow=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
-  pauseButton=button("PAUSE"){togglePause()}.apply{isEnabled=false}
-  actionRow.addView(pauseButton,LinearLayout.LayoutParams(0,dp(34),1f).apply{rightMargin=dp(6)})
-  retryButton=button("RETRY FAILED"){sendFiles(true)}.apply{isEnabled=false}
-  actionRow.addView(retryButton,LinearLayout.LayoutParams(0,dp(34),1f))
-  statusCard.addView(actionRow,lp(-1,dp(34)).apply{topMargin=dp(7)})
-  val serverRow=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
-  serverInfo=label("Local file server stopped",9f,muted).apply{
-   maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END
-  }
-  serverRow.addView(serverInfo,LinearLayout.LayoutParams(0,-2,1f))
-  stopServerButton=button("STOP SERVER"){stopTransferServer()}.apply{
-   isEnabled=false;textSize=10f
-  }
-  serverRow.addView(stopServerButton,lp(dp(104),dp(30)).apply{leftMargin=dp(6)})
-  statusCard.addView(serverRow,lp(-1,-2).apply{topMargin=dp(5)})
-  root.addView(statusCard,lp(-1,-2).apply{topMargin=dp(8)})
-
+  status=label("Add PKG files, connect, then send.",11f,muted).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END}
+  root.addView(status,lp(-1,-2).apply{topMargin=dp(8)})
+  pauseButton=button("",false){togglePause()}.apply{contentDescription="Pause transfer";visibility=View.GONE;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_pause,0,0,0)}
+  root.addView(pauseButton,lp(dp(48),dp(42)).apply{gravity=Gravity.CENTER_HORIZONTAL;topMargin=dp(6)})
   setContentView(root)
  }
  private fun prefs()=getSharedPreferences("xpd_direct_install",MODE_PRIVATE)
  private fun restoreState(){
   val savedIp=prefs().getString("console_ip","")?:""
   if(savedIp.isNotEmpty())ip.setText(savedIp)
-  val savedPort=prefs().getString("console_port","12800")?:"12800"
-  port.setText(savedPort)
-  ps5WebPort.setText(prefs().getString("ps5_web_port","8084")?:"8084")
+  port.setText("12800")
   val raw=prefs().getString("pkg_uris","[]")?:"[]"
   try{
    val arr=JSONArray(raw)
@@ -225,15 +151,12 @@ class MainActivity : Activity() {
   refreshQueue()
  }
  private fun saveState(){
-  if(!::ip.isInitialized||!::port.isInitialized)return
+  if(!::ip.isInitialized)return
   val arr=JSONArray()
   files.forEach{arr.put(it.uri.toString())}
-  prefs().edit().putString("console_ip",ip.text.toString().trim())
-   .putString("console_port",port.text.toString().trim())
-   .putString("ps5_web_port",if(::ps5WebPort.isInitialized)ps5WebPort.text.toString().trim() else "8084")
-   .putString("pkg_uris",arr.toString()).apply()
+  prefs().edit().putString("console_ip",ip.text.toString().trim()).putString("pkg_uris",arr.toString()).apply()
  }
- override fun onResume(){super.onResume();if(::stopServerButton.isInitialized){server=TransferRuntime.server;stopServerButton.isEnabled=server!=null;if(server==null)serverInfo.text="Local file server stopped.";refreshQueue()}}
+ override fun onResume(){super.onResume();server=TransferRuntime.server;if(::queue.isInitialized)refreshQueue()}
  override fun onPause(){saveState();super.onPause()}
  private fun sectionHeader(s:String)=label(s,10f,silver).apply{letterSpacing=.12f;setPadding(2,0,2,8)}
  private fun card()=LinearLayout(this).apply{
@@ -309,18 +232,15 @@ class MainActivity : Activity() {
   }.start()
  }
  private fun checkReceiver(){
-  val host=ip.text.toString().trim();val p=port.text.toString().toIntOrNull()
+  val host=ip.text.toString().trim()
   if(!validIp(host)){status.text="Enter a valid PlayStation IPv4 address.";return}
-  if(p==null||p !in 1..65535){status.text="Enter a valid port.";return}
-  check.isEnabled=false;status.text="Checking PS4 receiver…"
-  Thread{
-   val result=when(p){
-    9090->probeHttp(host,9090,"/status","GoldHEN")
-    9021,9020->if(probeTcp(host,p))"GoldHEN binloader reachable on port $p. Ready for payload transfer." else "No GoldHEN binloader response on port $p."
-    else->probeHttp(host,p,"/api","RPI")
-   }
-   runOnUiThread{status.text=result;check.isEnabled=true}
-  }.start()
+  check.isEnabled=false;status.text="Detecting receiver on port 12800 or 9090…"
+  Thread{val detected=detectReceiverPort(host);runOnUiThread{if(detected!=null){port.setText(detected.toString());status.text="Receiver detected on port $detected."}else status.text="No supported receiver found on port 12800 or 9090.";check.isEnabled=true}}.start()
+ }
+ private fun detectReceiverPort(host:String):Int?{
+  val gold=probeHttp(host,9090,"/status","GoldHEN");if(gold.contains("status endpoint is ready",true))return 9090
+  val rpi=probeHttp(host,12800,"/api","RPI");if(rpi.contains("PKG receiver detected",true))return 12800
+  return null
  }
  private fun probeTcp(host:String,p:Int):Boolean{return try{java.net.Socket().use{it.connect(java.net.InetSocketAddress(host,p),2500);true}}catch(_:Exception){false}}
  private fun probeHttp(host:String,p:Int,path:String,kind:String):String{
@@ -340,23 +260,22 @@ class MainActivity : Activity() {
  private fun togglePause(){
   if(!busy)return
   paused=!paused
-  pauseButton.text=if(paused)"RESUME TRANSFER" else "PAUSE TRANSFER"
+  pauseButton.contentDescription=if(paused)"Resume transfer" else "Pause transfer"
+  pauseButton.setCompoundDrawablesWithIntrinsicBounds(if(paused)R.drawable.ic_play else R.drawable.ic_pause,0,0,0)
   status.text=if(paused)"Paused after the current package request. Resume to continue." else "Transfer resumed."
  }
  private fun sendFiles(retryOnly:Boolean=false){
   if(busy)return
-  if(ps5ReceiverBusy){status.text="Wait for PS5 receiver deployment to finish.";return}
   if(TransferRuntime.server!=null){status.text="The previous file server is still active. Stop it after the console finishes downloading before starting another queue.";return}
   if(scanning){status.text="Wait for the folder scan to finish.";return}
   val queueToSend=if(retryOnly)retryEntries.toList() else files.toList()
   if(queueToSend.isEmpty()){status.text=if(retryOnly)"There are no failed or pending packages to retry." else "Add at least one .pkg file.";return}
   val host=ip.text.toString().trim()
-  val p=port.text.toString().toIntOrNull()
   if(!validIp(host)){status.text="Enter a valid PlayStation IPv4 address.";return}
-  if(p==null||p !in 1..65535){status.text="Enter a valid receiver port.";return}
-  val goldHen=p==9090||p==9021||p==9020
-  if(!goldHen&&p!=12800){status.text="Use RPI port 12800 or a GoldHEN binloader port (9090, 9021 or 9020).";return}
-  if(goldHen&&queueToSend.any{it.metadata?.platform!="PS4"}){status.text="GoldHEN installation currently accepts PS4 PKG files only.";return}
+  status.text="Detecting receiver automatically on port 12800 or 9090…"
+  val p=detectReceiverPort(host)?:run{status.text="No supported receiver found. Start the receiver on port 12800 or 9090.";return}
+  port.setText(p.toString());val goldHen=p==9090
+  if(goldHen&&queueToSend.any{it.metadata?.platform!="PS4"}){status.text="GoldHEN accepts PS4 PKG files only.";return}
   val local=localIp(host)?:run{status.text="Could not find a phone IPv4 address on the same LAN as the console.";return}
   val activityRef=WeakReference(this)
   val queueSnapshot=queueToSend
@@ -372,17 +291,16 @@ class MainActivity : Activity() {
   },onServerError={m->activityRef.get()?.runOnUiThread{activityRef.get()?.status?.text=m}})
   TransferRuntime.server?.stop();TransferRuntime.server=null;server?.stop();server=null
   if(!s.start()){status.text="Could not start local HTTP server on port 9898.";return}
-  server=s;TransferRuntime.server=s;stopServerButton.isEnabled=true
+  server=s;TransferRuntime.server=s
   try{
    val serviceIntent=Intent(this,TransferForegroundService::class.java).setAction(TransferForegroundService.ACTION_START)
    if(android.os.Build.VERSION.SDK_INT>=26)startForegroundService(serviceIntent)else startService(serviceIntent)
   }catch(e:Exception){
-   s.stop();server=null;TransferRuntime.server=null;stopServerButton.isEnabled=false;status.text="Could not start transfer service: ${e.message?: "service error"}";return
+   s.stop();server=null;TransferRuntime.server=null;status.text="Could not start transfer service: ${e.message?: "service error"}";return
   }
   retryEntries.clear()
   window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-  serverInfo.text="Background file server active: http://$local:9898/"
-  transferCancelled=false;paused=false;busy=true;pauseButton.text="PAUSE TRANSFER";pauseButton.isEnabled=true;retryButton.isEnabled=false;refreshQueue()
+  transferCancelled=false;paused=false;busy=true;pauseButton.visibility=View.VISIBLE;pauseButton.isEnabled=true;pauseButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_pause,0,0,0);refreshQueue()
   status.text=if(goldHen)"Preparing GoldHEN installer…" else "Submitting packages to Remote Package Installer…"
   Thread{
    var message=""
@@ -422,45 +340,9 @@ class MainActivity : Activity() {
    }catch(e:Exception){message="Transfer stopped: ${e.message?: "unexpected error"}"}
    runOnUiThread{
     status.text=message
-    busy=false;paused=false;pauseButton.isEnabled=false;pauseButton.text="PAUSE TRANSFER";retryButton.isEnabled=retryEntries.isNotEmpty()
+    busy=false;paused=false;pauseButton.isEnabled=false;pauseButton.visibility=View.GONE
     refreshQueue()
    }
-  }.start()
- }
- private fun installPs5Receiver(){
-  if(busy||scanning){status.text="Wait until the current operation finishes.";return}
-  val host=ip.text.toString().trim()
-  val webPort=ps5WebPort.text.toString().toIntOrNull()
-  if(!validIp(host)){status.text="Enter the PS5 IPv4 address first.";return}
-  if(webPort==null||webPort !in 1..65535){status.text="Enter a valid Payload Manager web port (default 8084).";return}
-  installPs5ReceiverButton.isEnabled=false;ps5ReceiverBusy=true
-  status.text="Preparing the PS5 receiver payload…"
-  Thread{
-   var message=""
-   try{
-    val encoded=assets.open("pkg-receiver.elf.b64").bufferedReader().use{it.readText()}
-    val elf=Base64.decode(encoded,Base64.DEFAULT)
-    if(elf.isEmpty())throw IllegalStateException("PS5 receiver payload is empty")
-    val upload=URL("http://$host:$webPort/manage:upload?filename=pkg-receiver.elf").openConnection() as HttpURLConnection
-    try{
-     upload.requestMethod="POST";upload.connectTimeout=15000;upload.readTimeout=90000;upload.doOutput=true
-     upload.setRequestProperty("Content-Type","application/octet-stream")
-     upload.setFixedLengthStreamingMode(elf.size)
-     upload.outputStream.use{it.write(elf);it.flush()}
-     val code=upload.responseCode
-     val body=(if(code in 200..299)upload.inputStream else upload.errorStream)?.bufferedReader()?.use{it.readText()}?:""
-     if(code !in 200..299||!body.trim().startsWith("OK",true))throw IllegalStateException("Receiver upload failed (HTTP $code): $body")
-    }finally{upload.disconnect()}
-    val launch=URL("http://$host:$webPort/loadpayload:pkg-receiver.elf").openConnection() as HttpURLConnection
-    try{
-     launch.requestMethod="GET";launch.connectTimeout=10000;launch.readTimeout=30000
-     val code=launch.responseCode
-     val body=(if(code in 200..299)launch.inputStream else launch.errorStream)?.bufferedReader()?.use{it.readText()}?:""
-     if(code !in 200..299||!body.contains("OK",true))throw IllegalStateException("Receiver uploaded, but launch failed (HTTP $code): $body")
-     message="PS5 receiver launched successfully. It listens on port 12800; you can now send PS5 PKG files."
-    }finally{launch.disconnect()}
-   }catch(e:Exception){message="Could not install PS5 receiver: ${e.message?: "network error"}"}
-   runOnUiThread{status.text=message;ps5ReceiverBusy=false;installPs5ReceiverButton.isEnabled=true}
   }.start()
  }
  private fun stopTransferServer(){
@@ -468,10 +350,8 @@ class MainActivity : Activity() {
   TransferRuntime.server?.stop();TransferRuntime.server=null
   try{startService(Intent(this,TransferForegroundService::class.java).setAction(TransferForegroundService.ACTION_STOP))}catch(_:Exception){}
   server=null
-  stopServerButton.isEnabled=false
   window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-  serverInfo.text="Local file server stopped."
-  status.text="Transfer server stopped by user."
+  status.text="Transfer server stopped."
   refreshQueue()
  }
  private fun localIp(targetIp:String?=null):String? {
@@ -499,37 +379,18 @@ class MainActivity : Activity() {
  }
  private fun refreshQueue(){
   val query=if(::queueSearch.isInitialized)queueSearch.text.toString().trim().lowercase(Locale.ROOT)else ""
-  val familyCounts=files.mapNotNull{it.metadata?.titleId?.takeIf{v->v.isNotBlank()}}.groupingBy{it}.eachCount()
-  val visible=files.withIndex().filter{(_,entry)->
-   val meta=entry.metadata
-   val roleOk=when(filterRole){"BASE"->meta!=null&&!meta.isDlc&&!meta.isUpdate;"UPDATE"->meta?.isUpdate==true;"DLC"->meta?.isDlc==true;else->true}
-   val searchOk=query.isBlank()||listOf(entry.name,meta?.displayTitle.orEmpty(),meta?.titleId.orEmpty(),meta?.contentId.orEmpty()).any{it.lowercase(Locale.ROOT).contains(query)}
-   roleOk&&searchOk
-  }
+  val visible=files.withIndex().filter{(_,entry)->query.isBlank()||listOf(entry.name,entry.metadata?.displayTitle.orEmpty(),entry.metadata?.titleId.orEmpty(),entry.metadata?.contentId.orEmpty()).any{it.lowercase(Locale.ROOT).contains(query)}}
   fileInfo.text=when{
    files.isEmpty()->"No files selected"
-   else->"${files.size} selected  |  ${visible.size} shown"
+   else->"${files.size} selected"
   }
   queue.removeAllViews();progressViews.clear();progressLabels.clear()
   if(files.isEmpty()){
    queue.addView(label("No packages yet. Tap ADD PKG FILES to begin.",11f,muted).apply{setPadding(2,dp(12),2,dp(8))})
   }else if(visible.isEmpty()){
-   queue.addView(label("No packages match this search or filter.",11f,muted).apply{setPadding(2,dp(12),2,dp(8))})
+   queue.addView(label("No files match this search.",11f,muted).apply{setPadding(2,dp(12),2,dp(8))})
   }
-  val groupedVisible=visible.groupBy{(_,entry)->entry.metadata?.titleId?.takeIf{it.isNotBlank()}?:("single:"+entry.id)}
-  groupedVisible.forEach{(familyKey,familyItems)->
-   val familyTitleId=familyItems.firstOrNull()?.value?.metadata?.titleId.orEmpty()
-   val familyTotal=if(familyTitleId.isNotBlank())familyCounts[familyTitleId]?:familyItems.size else familyItems.size
-   if(familyTotal>1){
-    val expanded=familyKey in expandedFamilies
-    val familyButton=button("GAME FAMILY  |  $familyTitleId  |  $familyTotal FILES  |  ${if(expanded)"HIDE" else "SHOW"}"){
-     if(expanded)expandedFamilies.remove(familyKey)else expandedFamilies.add(familyKey)
-     refreshQueue()
-    }.apply{isEnabled=!busy;textSize=10f}
-    queue.addView(familyButton,lp(-1,dp(38)).apply{topMargin=dp(8)})
-   }
-   if(familyTotal<=1||familyKey in expandedFamilies){
-    familyItems.forEach{(index,f)->
+  visible.forEach{(index,f)->
      val row=LinearLayout(this).apply{
       orientation=1
       setPadding(dp(10),dp(10),dp(10),dp(9))
@@ -540,15 +401,6 @@ class MainActivity : Activity() {
      }
      val meta=f.metadata
      val top=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
-     val pkgMark=label("PKG",9f,silver).apply{
-      gravity=Gravity.CENTER
-      typeface=android.graphics.Typeface.DEFAULT_BOLD
-      background=android.graphics.drawable.GradientDrawable().apply{
-       setColor(Color.rgb(38,41,47));cornerRadius=dp(8).toFloat()
-       setStroke(1,Color.rgb(75,79,88))
-      }
-     }
-     top.addView(pkgMark,lp(dp(44),dp(44)).apply{rightMargin=dp(10)})
      if(meta?.iconPng!=null){
       try{
        val bitmap=android.graphics.BitmapFactory.decodeByteArray(meta.iconPng,0,meta.iconPng.size)
@@ -563,8 +415,7 @@ class MainActivity : Activity() {
       maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END
       typeface=android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL)
      })
-     val role=when{meta?.isDlc==true->"DLC";meta?.isUpdate==true->"UPDATE";meta!=null->"BASE GAME";else->"PKG"}
-     val details=listOfNotNull(meta?.platform,meta?.titleId?.takeIf{it.isNotBlank()},meta?.version?.takeIf{it.isNotBlank()},role).joinToString("  |  ")
+     val details=listOfNotNull(meta?.platform,meta?.titleId?.takeIf{it.isNotBlank()},meta?.version?.takeIf{it.isNotBlank()}).joinToString("  |  ")
      textCol.addView(label(details,9f,muted).apply{
       setPadding(0,dp(4),0,0);maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END
      })
@@ -607,9 +458,10 @@ class MainActivity : Activity() {
     }
    }
   }
+  send.text=if(retryEntries.isNotEmpty())"RETRY" else "SEND"
+  send.setCompoundDrawablesWithIntrinsicBounds(if(retryEntries.isNotEmpty())R.drawable.ic_retry else R.drawable.ic_send,0,0,0)
   send.isEnabled=files.isNotEmpty()&&!busy&&TransferRuntime.server==null
   clear.isEnabled=!busy
-  if(::retryButton.isInitialized&&!busy)retryButton.isEnabled=retryEntries.isNotEmpty()&&TransferRuntime.server==null
  }
  private fun updatePackageProgress(id:String){
   val entry=files.firstOrNull{it.id==id}?:return
