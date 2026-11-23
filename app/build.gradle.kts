@@ -11,8 +11,30 @@ android {
         applicationId = "com.xpd.directinstall"
         minSdk = 23
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            val storePath = System.getenv("XPD_KEYSTORE_PATH")
+            if (!storePath.isNullOrBlank()) {
+                storeFile = file(storePath)
+                storePassword = System.getenv("XPD_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("XPD_KEY_ALIAS")
+                keyPassword = System.getenv("XPD_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            val hasSigning = !System.getenv("XPD_KEYSTORE_PATH").isNullOrBlank()
+            if (hasSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+            isMinifyEnabled = false
+        }
     }
 
     compileOptions {
