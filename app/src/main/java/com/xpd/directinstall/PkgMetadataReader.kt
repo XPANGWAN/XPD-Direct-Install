@@ -169,7 +169,7 @@ object PkgMetadataReader {
             ?: entries.firstOrNull { it.id in 0x1201L..0x1220L && it.flags and 0x80000000L == 0L }
         val icon = readEntry(iconEntry,8L*1024*1024)?.takeIf { it.size >= 8 && it[0] == 0x89.toByte() && it[1] == 0x50.toByte() }
         val isDlc = category.equals("ac",true) || title.contains("DLC",true) || contentId.contains("-DLC",true) || contentId.contains("_DLC",true)
-        val isUpdate = category.equals("gp",true) || category.equals("gd",true) || title.contains("Update",true)
+        val isUpdate = category.equals("gp",true) || category.equals("patch",true) || title.contains("Update",true)
         val valid = if (platform == "PS4") title.isNotBlank() || contentId.isNotBlank() else contentId.isNotBlank()
         return PkgMetadata(platform,title,titleId,contentId,category,version,fileSize,digest,icon,isDlc,isUpdate,valid,
             if (valid) "Package metadata read successfully" else "Container found, but game metadata was not found")
