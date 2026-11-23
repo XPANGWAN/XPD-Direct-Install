@@ -165,7 +165,7 @@ class PkgHttpServer(
                         output.flush()
                         remaining -= count
                         sent += count
-                        onBytes(entry.id, sent)
+                        onBytes(entry.id, count.toLong())
                     }
                 }
             }
