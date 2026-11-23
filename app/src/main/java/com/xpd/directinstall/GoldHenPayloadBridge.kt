@@ -131,9 +131,8 @@ class GoldHenPayloadBridge(
     }
 
     private fun loadPayload(): ByteArray {
-        val encoded = resolver.openRawResource(
-            com.xpd.directinstall.R.raw.xpd_dpi_payload
-        ).bufferedReader(Charsets.US_ASCII).use { it.readText() }
+        val encoded = resolver.assets.open("xpd-dpi-payload.b64")
+            .bufferedReader(Charsets.US_ASCII).use { it.readText() }
         val bytes = Base64.decode(encoded, Base64.DEFAULT)
         require(bytes.isNotEmpty()) { "Bundled GoldHEN payload is empty" }
         return bytes
