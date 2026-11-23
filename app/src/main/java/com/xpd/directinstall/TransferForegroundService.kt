@@ -40,7 +40,13 @@ class TransferForegroundService : Service() {
         return START_NOT_STICKY
     }
 
-    override fun onDestroy() {\n        TransferRuntime.server?.stop()\n        TransferRuntime.server = null\n        super.onDestroy()\n    }\n\n    private fun createChannel() {
+    override fun onDestroy() {
+        TransferRuntime.server?.stop()
+        TransferRuntime.server = null
+        super.onDestroy()
+    }
+
+    private fun createChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(
