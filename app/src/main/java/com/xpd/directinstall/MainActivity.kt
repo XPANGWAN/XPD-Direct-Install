@@ -28,7 +28,7 @@ class MainActivity : Activity() {
  private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:TextView
  private lateinit var send:Button; private lateinit var check:Button; private lateinit var serverInfo:TextView
  private var busy=false
- override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi()}
+ override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();restoreState()}
  private fun buildUi(){
   val root=LinearLayout(this).apply{orientation=1;setPadding(20,22,20,20);setBackgroundColor(bg)}
   val scroll=ScrollView(this).apply{clipToPadding=false}
@@ -59,6 +59,38 @@ class MainActivity : Activity() {
   body.addView(label("Both devices must be connected to the same Wi-Fi network. Keep XPD open while the PS4 downloads the selected files. A successful request means accepted by the receiver, not confirmed installation.",10f,muted).apply{setPadding(4,4,4,22);gravity=Gravity.CENTER})
   scroll.addView(body);root.addView(scroll);setContentView(root)
  }
+ private fun prefs()=getSharedPreferences("xpd_direct_install",MODE_PRIVATE)
+ private fun restoreState(){
+  val savedIp=prefs().getString("console_ip","")?:""
+  if(savedIp.isNotEmpty())ip.setText(savedIp)
+  val savedPort=prefs().getString("console_port","12800")?:"12800"
+  port.setText(savedPort)
+  val raw=prefs().getString("pkg_uris","[]")?:"[]"
+  try{
+   val arr=JSONArray(raw)
+   for(i in 0 until arr.length()){
+    val u=Uri.parse(arr.getString(i))
+    if(files.any{it.uri==u})continue
+    try{
+     val name=query(u,OpenableColumns.DISPLAY_NAME)?: "package.pkg"
+     if(name.lowercase(Locale.ROOT).endsWith(".pkg")){
+      val size=query(u,OpenableColumns.SIZE)?.toLongOrNull()?:-1L
+      files.add(PkgEntry(files.size.toString(),u,name,size))
+     }
+    }catch(_:Exception){}
+   }
+  }catch(_:Exception){}
+  refreshQueue()
+ }
+ private fun saveState(){
+  if(!::ip.isInitialized||!::port.isInitialized)return
+  val arr=JSONArray()
+  files.forEach{arr.put(it.uri.toString())}
+  prefs().edit().putString("console_ip",ip.text.toString().trim())
+   .putString("console_port",port.text.toString().trim())
+   .putString("pkg_uris",arr.toString()).apply()
+ }
+ override fun onPause(){saveState();super.onPause()}
  private fun sectionHeader(s:String)=label(s,10f,silver).apply{letterSpacing=.14f;setPadding(2,0,2,10)}
  private fun card()=LinearLayout(this).apply{
   orientation=1;setPadding(16,16,16,16)
@@ -136,7 +168,7 @@ class MainActivity : Activity() {
   var count=0;uris.forEach{u->val name=query(u,OpenableColumns.DISPLAY_NAME)?:"file.pkg";if(!name.lowercase(Locale.ROOT).endsWith(".pkg")||files.any{it.uri==u})return@forEach
    try{contentResolver.takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION)}catch(_:SecurityException){}
    files.add(PkgEntry(files.size.toString(),u,name,query(u,OpenableColumns.SIZE)?.toLongOrNull()?:-1L));count++}
-  status.text=if(count>0)"$count PKG file(s) added." else "No new .pkg files selected.";refreshQueue()
+  status.text=if(count>0)"$count PKG file(s) added." else "No new .pkg files selected.";refreshQueue();saveState()
  }
  private fun query(u:Uri,col:String):String?{var c:Cursor?=null;return try{c=contentResolver.query(u,arrayOf(col),null,null,null);if(c!=null&&c.moveToFirst()){val i=c.getColumnIndex(col);if(i>=0&&!c.isNull(i))c.getString(i)else null}else null}catch(_:Exception){null}finally{c?.close()}}
  override fun onDestroy(){server?.stop();window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);super.onDestroy()}
