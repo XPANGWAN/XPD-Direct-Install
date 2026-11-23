@@ -29,8 +29,8 @@ class MainActivity : Activity() {
  private val files=mutableListOf<PkgEntry>(); private val served=ConcurrentHashMap<String,Long>(); private val progressViews=ConcurrentHashMap<String,ProgressBar>(); private val progressLabels=ConcurrentHashMap<String,TextView>()
  private var server:PkgHttpServer?=null; private lateinit var ip:EditText; private lateinit var port:EditText
  private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout; private lateinit var queueSearch:EditText
- private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var stopServerButton:Button; private lateinit var serverInfo:TextView
- @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; private var filterRole="ALL"
+ private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var stopServerButton:Button; private lateinit var pauseButton:Button; private lateinit var retryButton:Button; private lateinit var serverInfo:TextView
+ @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; @Volatile private var paused=false; private val transferLock=java.lang.Object(); private val retryEntries=mutableListOf<PkgEntry>(); private var filterRole="ALL"
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();server=TransferRuntime.server;stopServerButton.isEnabled=server!=null;if(server!=null)serverInfo.text="Local file server active on port 9898.";restoreState()}
  private fun buildUi(){
   val root=LinearLayout(this).apply{orientation=1;setPadding(20,22,20,20);setBackgroundColor(bg)}
@@ -80,7 +80,9 @@ class MainActivity : Activity() {
   body.addView(sectionHeader("03  /  SEND TO CONSOLE"))
   val transfer=card()
   status=label("READY  •  Select PKG files to begin.",12f,silver).apply{setPadding(2,dp(4),2,dp(14))};transfer.addView(status)
-  send=button("START TRANSFER",true){sendFiles()}.apply{isEnabled=false};transfer.addView(send,lp(-1,dp(56)))
+  send=button("START TRANSFER",true){sendFiles(false)}.apply{isEnabled=false};transfer.addView(send,lp(-1,dp(56)))
+  pauseButton=button("PAUSE TRANSFER"){togglePause()}.apply{isEnabled=false};transfer.addView(pauseButton,lp(-1,dp(44)).apply{topMargin=dp(8)})
+  retryButton=button("RETRY FAILED / PENDING"){sendFiles(true)}.apply{isEnabled=false};transfer.addView(retryButton,lp(-1,dp(44)).apply{topMargin=dp(8)})
   serverInfo=label("Local phone server  •  Port 9898",10f,muted).apply{setPadding(2,dp(12),2,2)};transfer.addView(serverInfo)
   stopServerButton=button("STOP FILE SERVER"){stopTransferServer()}.apply{isEnabled=false};transfer.addView(stopServerButton,lp(-1,dp(42)).apply{topMargin=dp(8)})
   body.addView(transfer,lp(-1,-2).apply{bottomMargin=dp(18)})
@@ -222,10 +224,18 @@ class MainActivity : Activity() {
    else "Port $p responded (HTTP $code), but $kind was not confirmed."
   }catch(e:Exception){"No $kind response on $p: "+(e.message?:"connection failed")}finally{conn?.disconnect()}
  }
- private fun sendFiles(){
+ private fun togglePause(){
+  if(!busy)return
+  paused=!paused
+  pauseButton.text=if(paused)"RESUME TRANSFER" else "PAUSE TRANSFER"
+  status.text=if(paused)"Paused after the current package request. Resume to continue." else "Transfer resumed."
+  synchronized(transferLock){transferLock.notifyAll()}
+ }
+ private fun sendFiles(retryOnly:Boolean=false){
   if(busy)return
   if(scanning){status.text="Wait for the folder scan to finish.";return}
-  if(files.isEmpty()){status.text="Add at least one .pkg file.";return}
+  val queueToSend=if(retryOnly)retryEntries.toList() else files.toList()
+  if(queueToSend.isEmpty()){status.text=if(retryOnly)"There are no failed or pending packages to retry." else "Add at least one .pkg file.";return}
   val host=ip.text.toString().trim()
   val p=port.text.toString().toIntOrNull()
   if(!validIp(host)){status.text="Enter a valid PlayStation IPv4 address.";return}
@@ -236,7 +246,8 @@ class MainActivity : Activity() {
   if(goldHen&&files.any{it.metadata?.platform!="PS4"}){status.text="GoldHEN installation currently accepts PS4 PKG files only.";return}
   val local=localIp(host)?:run{status.text="Could not find a phone IPv4 address on the same LAN as the console.";return}
   val activityRef=WeakReference(this)
-  val queueSnapshot=files.toList()
+  val queueSnapshot=queueToSend
+  if(!retryOnly)retryEntries.clear() else retryEntries.clear()
   val servedCounts=served
   val lastUiRefresh=AtomicLong(0L)
   val s=PkgHttpServer(contentResolver,9898,queueSnapshot,publicHost=local,onBytes={id,n->
@@ -258,17 +269,18 @@ class MainActivity : Activity() {
   }
   window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
   serverInfo.text="Phone file server: http://$local:9898/  •  Keep XPD open"
-  transferCancelled=false;busy=true;refreshQueue()
+  transferCancelled=false;paused=false;busy=true;pauseButton.text="PAUSE TRANSFER";pauseButton.isEnabled=true;retryButton.isEnabled=false;refreshQueue()
   status.text=if(goldHen)"Preparing GoldHEN installer…" else "Submitting packages to Remote Package Installer…"
   Thread{
    var message=""
    try{
     for((index,entry) in queueSnapshot.withIndex()){
-     if(transferCancelled){message="Transfer stopped by user.";break}
+     synchronized(transferLock){while(paused&&!transferCancelled){transferLock.wait(500)}}
+     if(transferCancelled){message="Transfer stopped by user.";retryEntries.addAll(queueSnapshot.drop(index));break}
      runOnUiThread{status.text="Sending ${index+1}/${queueSnapshot.size}: ${entry.metadata?.displayTitle?:entry.name}"}
      if(goldHen){
       val result=GoldHenInstaller.install(this,host,local,entry,9898)
-      if(!result.success){message="Package ${index+1} failed: ${result.message}";break}
+      if(!result.success){message="Package ${index+1} failed: ${result.message}";retryEntries.addAll(queueSnapshot.drop(index));break}
       message=result.message
      }else{
       var c:HttpURLConnection?=null
@@ -287,7 +299,7 @@ class MainActivity : Activity() {
        if(code in 200..299&&reply.contains("success",true))"RPI accepted: ${entry.name}" else "RPI rejected ${entry.name} (HTTP $code): $reply"
       }catch(e:Exception){"RPI request failed for ${entry.name}: ${e.message?: "network error"}"}
       finally{c?.disconnect()}
-      if(!result.startsWith("RPI accepted:")){message=result;break}
+      if(!result.startsWith("RPI accepted:")){message=result;retryEntries.addAll(queueSnapshot.drop(index));break}
       message=result
      }
     }
@@ -296,13 +308,13 @@ class MainActivity : Activity() {
    }catch(e:Exception){message="Transfer stopped: ${e.message?: "unexpected error"}"}
    runOnUiThread{
     status.text=message
-    busy=false
+    busy=false;paused=false;pauseButton.isEnabled=false;pauseButton.text="PAUSE TRANSFER";retryButton.isEnabled=retryEntries.isNotEmpty()
     refreshQueue()
    }
   }.start()
  }
  private fun stopTransferServer(){
-  transferCancelled=true
+  transferCancelled=true;paused=false;synchronized(transferLock){transferLock.notifyAll()}
   try{startService(Intent(this,TransferForegroundService::class.java).setAction(TransferForegroundService.ACTION_STOP))}catch(_:Exception){
    TransferRuntime.server?.stop();TransferRuntime.server=null
   }
@@ -377,6 +389,7 @@ class MainActivity : Activity() {
    queue.addView(row,lp(-1,-2).apply{topMargin=dp(7)})
   }
   send.isEnabled=files.isNotEmpty()&&!busy;clear.isEnabled=!busy
+  if(::retryButton.isInitialized&&!busy)retryButton.isEnabled=retryEntries.isNotEmpty()
  }
  private fun updatePackageProgress(id:String){
   val entry=files.firstOrNull{it.id==id}?:return
