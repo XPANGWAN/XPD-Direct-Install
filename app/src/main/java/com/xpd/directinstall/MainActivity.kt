@@ -42,26 +42,31 @@ class MainActivity : Activity() {
   brandText.addView(label("PS4 PKG SENDER  •  v0.5.0",10f,muted).apply{letterSpacing=.08f;setPadding(1,5,0,0)})
   brand.addView(brandText,LinearLayout.LayoutParams(0,-2,1f))
   body.addView(brand,lp(-1,dp(82)).apply{bottomMargin=dp(22)})
-  body.addView(sectionHeader("01  /  CONSOLE CONNECTION"))
+  body.addView(sectionHeader("01  /  CONSOLE"))
   val connection=card()
-  ip=field("PS4 IP address",false);connection.addView(label("CONSOLE IP ADDRESS",10f,muted),lp(-1,20));connection.addView(ip,lp(-1,52).apply{bottomMargin=12})
-  port=field("12800",true).apply{setText("12800")};connection.addView(label("REMOTE INSTALLER PORT",10f,muted),lp(-1,20));connection.addView(port,lp(-1,52))
-  check=button("TEST CONNECTION"){checkReceiver()};connection.addView(check,lp(-1,50).apply{topMargin=14})
-  connection.addView(label("Use the port configured by the receiver on your PS4. RPI uses 12800. GoldHEN uses a different payload protocol on 9090.",10f,muted).apply{setPadding(2,10,2,0)})
-  body.addView(connection,lp(-1,-2).apply{bottomMargin=22})
-  body.addView(sectionHeader("02  /  PACKAGE QUEUE"))
+  connection.addView(label("PLAYSTATION 4  •  LOCAL NETWORK",10f,muted).apply{letterSpacing=.10f},lp(-1,22))
+  ip=field("192.168.1.XX",false).apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL}
+  connection.addView(label("CONSOLE IP ADDRESS",10f,muted),lp(-1,20));connection.addView(ip,lp(-1,52).apply{bottomMargin=12})
+  port=field("12800",true).apply{setText("12800")};connection.addView(label("RECEIVER PORT",10f,muted),lp(-1,20));connection.addView(port,lp(-1,52))
+  check=button("CHECK CONNECTION"){checkReceiver()};connection.addView(check,lp(-1,50).apply{topMargin=14})
+  connection.addView(label("RPI: 12800  /  GoldHEN status: 9090 (detection only)",10f,muted).apply{setPadding(2,12,2,0)})
+  body.addView(connection,lp(-1,-2).apply{bottomMargin=dp(22)})
+  body.addView(sectionHeader("02  /  YOUR PACKAGES"))
   val packages=card()
-  packages.addView(label("SELECT PKG FILES",10f,muted),lp(-1,20))
-  packages.addView(button("＋   ADD PACKAGE FILES"){chooseFiles()},lp(-1,52).apply{topMargin=8})
-  fileInfo=label("No packages selected",12f,muted).apply{setPadding(2,13,2,8)};packages.addView(fileInfo)
-  queue=label("Your selected packages will appear here.",11f,muted).apply{setPadding(2,4,2,4)};packages.addView(queue)
-  body.addView(packages,lp(-1,-2).apply{bottomMargin=22})
-  body.addView(sectionHeader("03  /  TRANSFER"))
+  val queueTop=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
+  queueTop.addView(label("TRANSFER QUEUE",10f,silver).apply{letterSpacing=.12f},LinearLayout.LayoutParams(0,dp(24),1f))
+  queueTop.addView(button("CLEAR"){files.clear();served.clear();refreshQueue();saveState()},lp(dp(82),dp(34)))
+  packages.addView(queueTop)
+  packages.addView(button("＋   ADD PKG FILES",true){chooseFiles()},lp(-1,dp(52)).apply{topMargin=dp(10)})
+  fileInfo=label("No packages selected",12f,muted).apply{setPadding(2,dp(14),2,dp(8))};packages.addView(fileInfo)
+  queue=label("Choose one or more PKG files to build your queue.",11f,muted).apply{setPadding(2,dp(4),2,dp(4))};packages.addView(queue)
+  body.addView(packages,lp(-1,-2).apply{bottomMargin=dp(22)})
+  body.addView(sectionHeader("03  /  SEND TO CONSOLE"))
   val transfer=card()
-  status=label("READY  •  Add PKG files and test your PS4 connection.",12f,silver).apply{setPadding(2,4,2,12)};transfer.addView(status)
-  send=button("SEND TO PS4"){sendFiles()}.apply{isEnabled=false};transfer.addView(send,lp(-1,56))
-  serverInfo=label("Phone file server starts automatically on port 8080.",10f,muted).apply{setPadding(2,12,2,2)};transfer.addView(serverInfo)
-  body.addView(transfer,lp(-1,-2).apply{bottomMargin=18})
+  status=label("READY  •  Select PKG files to begin.",12f,silver).apply{setPadding(2,dp(4),2,dp(14))};transfer.addView(status)
+  send=button("START TRANSFER",true){sendFiles()}.apply{isEnabled=false};transfer.addView(send,lp(-1,dp(56)))
+  serverInfo=label("Local phone server  •  Port 8080",10f,muted).apply{setPadding(2,dp(12),2,2)};transfer.addView(serverInfo)
+  body.addView(transfer,lp(-1,-2).apply{bottomMargin=dp(18)})
   body.addView(label("Both devices must be connected to the same Wi-Fi network. Keep XPD open while the PS4 downloads the selected files. A successful request means accepted by the receiver, not confirmed installation.",10f,muted).apply{setPadding(4,4,4,22);gravity=Gravity.CENTER})
   scroll.addView(body);root.addView(scroll);setContentView(root)
  }
@@ -80,7 +85,7 @@ class MainActivity : Activity() {
     try{
      val name=query(u,OpenableColumns.DISPLAY_NAME)?: "package.pkg"
      if(name.lowercase(Locale.ROOT).endsWith(".pkg")){
-      val size=query(u,OpenableColumns.SIZE)?.toLongOrNull()?:-1L
+      val size=packageSize(u)
       files.add(PkgEntry(files.size.toString(),u,name,size))
      }
     }catch(_:Exception){}
@@ -146,8 +151,9 @@ class MainActivity : Activity() {
   if(p!=12800){status.text="RPI installation is supported on port 12800 in this build.";return}
   val local=localIp()?:run{status.text="Connect phone and PS4 to the same Wi-Fi network.";return}
   val s=PkgHttpServer(contentResolver,8080,files.toList(),onBytes={id,n->served.compute(id){_,old->((old?:0L)+n).let{v->val size=files.firstOrNull{it.id==id}?.size?:-1L;if(size>0)v.coerceAtMost(size)else v}};runOnUiThread{refreshQueue()}},onServerError={m->runOnUiThread{status.text=m}})
+  server?.stop();server=null
   if(!s.start()){status.text="Could not start local server on port 8080.";return}
-  server?.stop();server=s;window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+  server=s;window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
   serverInfo.text="Phone server: http://$local:8080/";busy=true;send.isEnabled=false;status.text="Submitting package queue to PS4…"
   Thread{var c:HttpURLConnection?=null;val msg=try{
    val links=JSONArray();files.forEach{links.put("http://$local:8080/pkg/${it.id}")}
@@ -174,9 +180,10 @@ class MainActivity : Activity() {
   val uris=mutableListOf<Uri>();data.clipData?.let{for(i in 0 until it.itemCount)uris.add(it.getItemAt(i).uri)};if(uris.isEmpty())data.data?.let{uris.add(it)}
   var count=0;uris.forEach{u->val name=query(u,OpenableColumns.DISPLAY_NAME)?:"file.pkg";if(!name.lowercase(Locale.ROOT).endsWith(".pkg")||files.any{it.uri==u})return@forEach
    try{contentResolver.takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION)}catch(_:SecurityException){}
-   files.add(PkgEntry(files.size.toString(),u,name,query(u,OpenableColumns.SIZE)?.toLongOrNull()?:-1L));count++}
+   files.add(PkgEntry(files.size.toString(),u,name,packageSize(u)));count++}
   status.text=if(count>0)"$count PKG file(s) added." else "No new .pkg files selected.";refreshQueue();saveState()
  }
+ private fun packageSize(u:Uri):Long { val column=query(u,OpenableColumns.SIZE)?.toLongOrNull(); if(column!=null&&column>=0)return column; return try{contentResolver.openFileDescriptor(u,"r")?.use{it.statSize}?:-1L}catch(_:Exception){-1L} }
  private fun query(u:Uri,col:String):String?{var c:Cursor?=null;return try{c=contentResolver.query(u,arrayOf(col),null,null,null);if(c!=null&&c.moveToFirst()){val i=c.getColumnIndex(col);if(i>=0&&!c.isNull(i))c.getString(i)else null}else null}catch(_:Exception){null}finally{c?.close()}}
  override fun onDestroy(){server?.stop();window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);super.onDestroy()}
 }
