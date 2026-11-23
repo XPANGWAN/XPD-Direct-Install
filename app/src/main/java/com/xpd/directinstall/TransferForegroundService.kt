@@ -3,6 +3,7 @@ package com.xpd.directinstall
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -116,12 +117,18 @@ class TransferForegroundService : Service() {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
         }
+        val stopIntent = Intent(this, TransferForegroundService::class.java).setAction(ACTION_STOP)
+        val stopPending = PendingIntent.getService(
+            this, NOTIFICATION_ID, stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         return builder
             .setSmallIcon(android.R.drawable.stat_sys_upload)
             .setContentTitle("XPD is serving PKG files")
-            .setContentText("Keep the phone and PlayStation on the same local network.")
+            .setContentText("Phone and PlayStation are connected for package transfer.")
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_SERVICE)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "STOP SERVER", stopPending)
             .build()
     }
 }
