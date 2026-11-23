@@ -401,6 +401,7 @@ class MainActivity : Activity() {
     if(!ok){
      activity.retryEntries.clear();activity.retryEntries.addAll(queueSnapshot)
      activity.stopTransferServer()
+     activity.status.text=message
     }
     activity.refreshQueue()
    }}
