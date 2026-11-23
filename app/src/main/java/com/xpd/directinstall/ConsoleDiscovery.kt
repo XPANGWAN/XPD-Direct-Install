@@ -4,8 +4,6 @@ import android.content.Context
 import android.net.wifi.WifiManager
 import java.net.HttpURLConnection
 import java.net.InetAddress
-import java.net.InetSocketAddress
-import java.net.Socket
 import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -67,9 +65,7 @@ object ConsoleDiscovery {
         if (rpi != null && (rpi.contains("Unsupported method", true) && rpi.contains("fail", true))) {
             return ConsoleCandidate(ip, "PS4 Remote Package Installer", 12800)
         }
-        if (rpi != null && rpi.isNotBlank()) {
-            return ConsoleCandidate(ip, "PKG Receiver", 12800)
-        }        return null
+        return null
     }
 
     private fun http(ip: String, port: Int, path: String): String? {
@@ -86,9 +82,4 @@ object ConsoleDiscovery {
         finally { connection?.disconnect() }
     }
 
-    private fun tcp(ip: String, port: Int): Boolean {
-        return try {
-            Socket().use { it.connect(InetSocketAddress(ip, port), 350); true }
-        } catch (_: Exception) { false }
-    }
 }
