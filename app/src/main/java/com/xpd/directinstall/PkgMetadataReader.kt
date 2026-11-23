@@ -47,7 +47,7 @@ object PkgMetadataReader {
             val pfd = resolver.openFileDescriptor(uri, "r") ?: return PkgMetadata(detail = "Cannot open file")
             pfd.use { descriptor ->
                 FileInputStream(descriptor.fileDescriptor).use { stream ->
-                    read(stream.channel, descriptor.statSize)
+                    read(stream.channel, descriptor.statSize.takeIf { it >= 0L } ?: stream.channel.size())
                 }
             }
         } catch (e: Exception) {
