@@ -14,7 +14,7 @@ Native Android application for sending PlayStation PKG files over a local networ
 - PS4 RPI request path on port 12800.
 - PS4 GoldHEN path: payload injection, callback listener, package metadata struct and BGFT manifest endpoint.
 - Local phone HTTP server on port 9898 supports GET, HEAD and byte-range requests.
-- Foreground data-sync service keeps the local file server alive when the Activity is backgrounded; a Stop File Server control ends it explicitly.
+- Foreground data-sync service and a bounded CPU wake lock keep the local file server alive when the Activity is backgrounded; a Stop File Server control ends it explicitly.
 - Selected file URIs and console settings are persisted when Android grants access.
 
 ## Compatibility and honest status
@@ -22,7 +22,7 @@ Native Android application for sending PlayStation PKG files over a local networ
 - **PS4 + RPI:** request path is implemented; real-console testing is still required.
 - **PS4 + GoldHEN:** payload/callback/manifest path is implemented; real-console testing across GoldHEN versions and network configurations is still required.
 - **PS5:** PS5 package metadata is recognized, but the PS5 receiver payload and PS5 install workflow are not integrated yet. The app blocks sending PS5 PKGs through the PS4 installer path.
-- Family grouping, pause/reorder/retry controls and a full library search/filter interface remain to be completed.
+- A full library catalog with family grouping, plus pause/resume/retry controls, remains to be completed; the current queue already supports search, type filters, removal and reordering.
 - A successful HTTP response or payload callback means the receiver accepted the request; it does not prove that installation completed. Confirm the result on the console.
 
 ## Build
