@@ -10,6 +10,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
+import android.util.Base64
 import androidx.documentfile.provider.DocumentFile
 import org.json.JSONArray
 import org.json.JSONObject
@@ -29,7 +30,7 @@ class MainActivity : Activity() {
  private val files=mutableListOf<PkgEntry>(); private val served=ConcurrentHashMap<String,Long>(); private val progressViews=ConcurrentHashMap<String,ProgressBar>(); private val progressLabels=ConcurrentHashMap<String,TextView>()
  private var server:PkgHttpServer?=null; private lateinit var ip:EditText; private lateinit var port:EditText
  private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout; private lateinit var queueSearch:EditText
- private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var stopServerButton:Button; private lateinit var pauseButton:Button; private lateinit var retryButton:Button; private lateinit var serverInfo:TextView
+ private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var stopServerButton:Button; private lateinit var pauseButton:Button; private lateinit var retryButton:Button; private lateinit var ps5WebPort:EditText; private lateinit var installPs5ReceiverButton:Button; private lateinit var serverInfo:TextView
  @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; @Volatile private var paused=false; private val retryEntries=mutableListOf<PkgEntry>(); private var filterRole="ALL"
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();server=TransferRuntime.server;stopServerButton.isEnabled=server!=null;if(server!=null)serverInfo.text="Local file server active on port 9898.";restoreState()}
  private fun buildUi(){
@@ -54,6 +55,11 @@ class MainActivity : Activity() {
   connection.addView(button("FIND CONSOLE ON WI-FI"){discoverConsole()},lp(-1,48).apply{topMargin=12})
   check=button("CHECK CONNECTION"){checkReceiver()};connection.addView(check,lp(-1,50).apply{topMargin=8})
   connection.addView(label("RPI: 12800  /  GoldHEN installer: 9090, 9021 or 9020",10f,muted).apply{setPadding(2,12,2,0)})
+  connection.addView(label("PS5 PAYLOAD MANAGER WEB PORT",10f,muted).apply{setPadding(2,dp(12),2,0)})
+  ps5WebPort=field("8084",true).apply{setText("8084")}
+  connection.addView(ps5WebPort,lp(-1,dp(48)).apply{topMargin=dp(6)})
+  installPs5ReceiverButton=button("INSTALL PS5 RECEIVER",true){installPs5Receiver()}
+  connection.addView(installPs5ReceiverButton,lp(-1,dp(48)).apply{topMargin=dp(8)})
   body.addView(connection,lp(-1,-2).apply{bottomMargin=dp(22)})
   body.addView(sectionHeader("02  /  YOUR PACKAGES"))
   val packages=card()
@@ -241,7 +247,6 @@ class MainActivity : Activity() {
   if(p==null||p !in 1..65535){status.text="Enter a valid receiver port.";return}
   val goldHen=p==9090||p==9021||p==9020
   if(!goldHen&&p!=12800){status.text="Use RPI port 12800 or a GoldHEN binloader port (9090, 9021 or 9020).";return}
-  if(queueToSend.any{it.metadata?.platform=="PS5"}){status.text="PS5 PKG metadata is supported, but PS5 receiver installation is not enabled in this build.";return}
   if(goldHen&&queueToSend.any{it.metadata?.platform!="PS4"}){status.text="GoldHEN installation currently accepts PS4 PKG files only.";return}
   val local=localIp(host)?:run{status.text="Could not find a phone IPv4 address on the same LAN as the console.";return}
   val activityRef=WeakReference(this)
@@ -311,6 +316,43 @@ class MainActivity : Activity() {
     busy=false;paused=false;pauseButton.isEnabled=false;pauseButton.text="PAUSE TRANSFER";retryButton.isEnabled=retryEntries.isNotEmpty()
     refreshQueue()
    }
+  }.start()
+ }
+ private fun installPs5Receiver(){
+  if(busy||scanning){status.text="Wait until the current operation finishes.";return}
+  val host=ip.text.toString().trim()
+  val webPort=ps5WebPort.text.toString().toIntOrNull()
+  if(!validIp(host)){status.text="Enter the PS5 IPv4 address first.";return}
+  if(webPort==null||webPort !in 1..65535){status.text="Enter a valid Payload Manager web port (default 8084).";return}
+  installPs5ReceiverButton.isEnabled=false
+  status.text="Preparing the PS5 receiver payload…"
+  Thread{
+   var message=""
+   try{
+    val encoded=assets.open("pkg-receiver.elf.b64").bufferedReader().use{it.readText()}
+    val elf=Base64.decode(encoded,Base64.DEFAULT)
+    if(elf.isEmpty())throw IllegalStateException("PS5 receiver payload is empty")
+    val upload=URL("http://$host:$webPort/manage:upload?filename=pkg-receiver.elf").openConnection() as HttpURLConnection
+    val uploadReply=try{
+     upload.requestMethod="POST";upload.connectTimeout=15000;upload.readTimeout=90000;upload.doOutput=true
+     upload.setRequestProperty("Content-Type","application/octet-stream")
+     upload.setFixedLengthStreamingMode(elf.size)
+     upload.outputStream.use{it.write(elf);it.flush()}
+     val code=upload.responseCode
+     val body=(if(code in 200..299)upload.inputStream else upload.errorStream)?.bufferedReader()?.use{it.readText()}?:""
+     if(code !in 200..299||!body.contains("OK",true))throw IllegalStateException("Receiver upload failed (HTTP $code): $body")
+     body
+    }finally{upload.disconnect()}
+    val launch=URL("http://$host:$webPort/loadpayload:pkg-receiver.elf").openConnection() as HttpURLConnection
+    try{
+     launch.requestMethod="GET";launch.connectTimeout=10000;launch.readTimeout=30000
+     val code=launch.responseCode
+     val body=(if(code in 200..299)launch.inputStream else launch.errorStream)?.bufferedReader()?.use{it.readText()}?:""
+     if(code !in 200..299||!body.contains("OK",true))throw IllegalStateException("Receiver uploaded, but launch failed (HTTP $code): $body")
+     message="PS5 receiver launched successfully. It listens on port 12800; you can now send PS5 PKG files."
+    }finally{launch.disconnect()}
+   }catch(e:Exception){message="Could not install PS5 receiver: ${e.message?: "network error"}"}
+   runOnUiThread{status.text=message;installPs5ReceiverButton.isEnabled=true}
   }.start()
  }
  private fun stopTransferServer(){
