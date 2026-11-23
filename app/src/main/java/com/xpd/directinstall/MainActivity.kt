@@ -236,15 +236,13 @@ class MainActivity : Activity() {
  private fun checkReceiver(){
   val host=ip.text.toString().trim()
   if(!validIp(host)){status.text="Enter a valid PlayStation IPv4 address.";return}
-  check.isEnabled=false;status.text="Detecting receiver on port 12800 or 9090…"
-  Thread{val detected=detectReceiverPort(host);runOnUiThread{if(detected!=null){port.setText(detected.toString());status.text="Receiver detected on port $detected."}else status.text="No supported receiver found on port 12800 or 9090.";check.isEnabled=true}}.start()
+  check.isEnabled=false;status.text="Checking PS4 Remote Package Installer on port 12800…"
+  Thread{val detected=detectReceiverPort(host);runOnUiThread{if(detected!=null){port.setText(detected.toString());status.text="Receiver detected on port $detected."}else status.text="PS4 Remote Package Installer was not detected on port 12800.";check.isEnabled=true}}.start()
  }
  private fun detectReceiverPort(host:String):Int?{
   val rpi=probeHttp(host,12800,"/api","RPI")
-  if(rpi.contains("PKG receiver detected",true)||rpi.contains("Port 12800 responded",true))return 12800
-  val gold=probeHttp(host,9090,"/status","GoldHEN")
-  if(gold.contains("status endpoint is ready",true))return 9090
-  return null
+  if(rpi.contains("Remote Package Installer detected",true))return 12800
+    return null
  }
  private fun probeTcp(host:String,p:Int):Boolean{return try{java.net.Socket().use{it.connect(java.net.InetSocketAddress(host,p),2500);true}}catch(_:Exception){false}}
  private fun probeHttp(host:String,p:Int,path:String,kind:String):String{
@@ -277,20 +275,18 @@ class MainActivity : Activity() {
   val host=ip.text.toString().trim()
   if(!validIp(host)){status.text="Enter a valid PlayStation IPv4 address.";return}
   send.isEnabled=false
-  status.text="Detecting receiver automatically on port 12800 or 9090…"
+  status.text="Checking PS4 Remote Package Installer on port 12800…"
   Thread{
    val detected=detectReceiverPort(host)
    runOnUiThread{
     send.isEnabled=true
-    if(detected==null){status.text="No supported receiver found. Start the receiver on port 12800 or 9090.";return@runOnUiThread}
+    if(detected==null){status.text="Remote Package Installer is not responding. Start it on the PS4 and retry.";return@runOnUiThread}
     port.setText(detected.toString())
-    if(detected==9090&&queueToSend.any{it.metadata?.platform!="PS4"}){status.text="GoldHEN accepts PS4 PKG files only.";return@runOnUiThread}
     beginTransfer(queueToSend,host,detected)
    }
   }.start()
  }
  private fun beginTransfer(queueToSend:List<PkgEntry>,host:String,p:Int){
-  val goldHen=p==9090
   val local=localIp(host)?:run{status.text="Could not find a phone IPv4 address on the same LAN as the console.";return}
   val activityRef=WeakReference(this)
   val queueSnapshot=queueToSend
@@ -320,7 +316,7 @@ class MainActivity : Activity() {
   retryEntries.clear()
   window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
   transferCancelled=false;paused=false;busy=true;pauseButton.visibility=View.VISIBLE;pauseButton.isEnabled=true;pauseButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_pause,0,0,0);refreshQueue()
-  status.text=if(goldHen)"Preparing GoldHEN installer…" else "Submitting packages to Remote Package Installer…"
+  status.text="Submitting packages to PS4 Remote Package Installer…"
   Thread{
    var message=""
    try{
@@ -328,11 +324,7 @@ class MainActivity : Activity() {
      while(paused&&!transferCancelled)Thread.sleep(250)
      if(transferCancelled){message="Transfer stopped by user.";retryEntries.addAll(queueSnapshot.drop(index));break}
      runOnUiThread{status.text="Sending ${index+1}/${queueSnapshot.size}: ${entry.metadata?.displayTitle?:entry.name}"}
-     if(goldHen){
-      val result=GoldHenInstaller.install(this,host,local,entry,9898)
-      if(!result.success){message="Package ${index+1} failed: ${result.message}";retryEntries.addAll(queueSnapshot.drop(index));break}
-      message=result.message
-     }else{
+     {
       var c:HttpURLConnection?=null
       val result=try{
        val fileUrl="http://$local:9898/pkg/${entry.id}"
