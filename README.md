@@ -23,6 +23,7 @@ Native Android application for sending PlayStation PKG files over a local networ
 3. For PS4, enable RPI or GoldHEN on the console. For PS5, start Payload Manager and use INSTALL PS5 RECEIVER first.
 4. Enter the console IP, select the matching receiver port, and start the queue.
 5. A successful receiver response means the package request was accepted; it is not a guarantee that the console completed installation.
+6. Keep the phone file server active while the console downloads. Use Stop File Server after the downloads finish; then the next queue or retry can start.
 
 ## Build
 
