@@ -357,7 +357,10 @@ class MainActivity : Activity() {
    val textCol=LinearLayout(this).apply{orientation=1}
    textCol.addView(label(meta?.displayTitle?.takeIf{it.isNotBlank()}?:f.name,13f,silver).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END})
    val role=when{meta?.isDlc==true->"DLC";meta?.isUpdate==true->"UPDATE";meta?.platform=="PS4"->"BASE GAME";else->""}
-   val subtitle=listOfNotNull(meta?.platform,meta?.titleId?.takeIf{it.isNotBlank()},meta?.version?.takeIf{it.isNotBlank()},role.takeIf{it.isNotBlank()}).joinToString("  •  ")
+   val familyId=meta?.titleId.orEmpty()
+   val familyCount=if(familyId.isBlank())0 else files.count{it.metadata?.titleId==familyId}
+   val familyTag=if(familyCount>1)"FAMILY $familyCount" else ""
+   val subtitle=listOfNotNull(meta?.platform,familyId.takeIf{it.isNotBlank()},meta?.version?.takeIf{it.isNotBlank()},role.takeIf{it.isNotBlank()},familyTag.takeIf{it.isNotBlank()}).joinToString("  •  ")
    if(subtitle.isNotBlank())textCol.addView(label(subtitle,10f,muted).apply{setPadding(0,dp(4),0,0)})
    top.addView(textCol,LinearLayout.LayoutParams(0,-2,1f));row.addView(top)
    val n=served[f.id]?:0L;val pct=if(f.size>0)(n*100/f.size).coerceIn(0,100)else 0
