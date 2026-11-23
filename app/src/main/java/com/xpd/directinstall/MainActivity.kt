@@ -241,12 +241,11 @@ class MainActivity : Activity() {
   if(p==null||p !in 1..65535){status.text="Enter a valid receiver port.";return}
   val goldHen=p==9090||p==9021||p==9020
   if(!goldHen&&p!=12800){status.text="Use RPI port 12800 or a GoldHEN binloader port (9090, 9021 or 9020).";return}
-  if(files.any{it.metadata?.platform=="PS5"}){status.text="PS5 PKG metadata is supported, but PS5 receiver installation is not enabled in this build.";return}
-  if(goldHen&&files.any{it.metadata?.platform!="PS4"}){status.text="GoldHEN installation currently accepts PS4 PKG files only.";return}
+  if(queueToSend.any{it.metadata?.platform=="PS5"}){status.text="PS5 PKG metadata is supported, but PS5 receiver installation is not enabled in this build.";return}
+  if(goldHen&&queueToSend.any{it.metadata?.platform!="PS4"}){status.text="GoldHEN installation currently accepts PS4 PKG files only.";return}
   val local=localIp(host)?:run{status.text="Could not find a phone IPv4 address on the same LAN as the console.";return}
   val activityRef=WeakReference(this)
   val queueSnapshot=queueToSend
-  if(!retryOnly)retryEntries.clear() else retryEntries.clear()
   val servedCounts=served
   val lastUiRefresh=AtomicLong(0L)
   val s=PkgHttpServer(contentResolver,9898,queueSnapshot,publicHost=local,onBytes={id,n->
@@ -260,6 +259,7 @@ class MainActivity : Activity() {
   TransferRuntime.server?.stop();TransferRuntime.server=null;server?.stop();server=null
   if(!s.start()){status.text="Could not start local HTTP server on port 9898.";return}
   server=s;TransferRuntime.server=s;stopServerButton.isEnabled=true
+  retryEntries.clear()
   try{
    val serviceIntent=Intent(this,TransferForegroundService::class.java).setAction(TransferForegroundService.ACTION_START)
    if(android.os.Build.VERSION.SDK_INT>=26)startForegroundService(serviceIntent)else startService(serviceIntent)
@@ -295,7 +295,8 @@ class MainActivity : Activity() {
        c.outputStream.use{it.write(body.toString().toByteArray(Charsets.UTF_8))}
        val code=c.responseCode
        val reply=(if(code in 200..299)c.inputStream else c.errorStream)?.bufferedReader()?.use{it.readText()}?:""
-       if(code in 200..299&&reply.contains("success",true))"RPI accepted: ${entry.name}" else "RPI rejected ${entry.name} (HTTP $code): $reply"
+       val accepted=try{JSONObject(reply).optBoolean("success",false)}catch(_:Exception){false}
+       if(code in 200..299&&accepted)"RPI accepted: ${entry.name}" else "RPI rejected ${entry.name} (HTTP $code): $reply"
       }catch(e:Exception){"RPI request failed for ${entry.name}: ${e.message?: "network error"}"}
       finally{c?.disconnect()}
       if(!result.startsWith("RPI accepted:")){message=result;retryEntries.addAll(queueSnapshot.drop(index));break}
