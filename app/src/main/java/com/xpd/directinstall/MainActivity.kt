@@ -433,7 +433,7 @@ class MainActivity : Activity() {
    val subtitle=listOfNotNull(meta?.platform,familyId.takeIf{it.isNotBlank()},meta?.version?.takeIf{it.isNotBlank()},role.takeIf{it.isNotBlank()},familyTag.takeIf{it.isNotBlank()}).joinToString("  •  ")
    if(subtitle.isNotBlank())textCol.addView(label(subtitle,10f,muted).apply{setPadding(0,dp(4),0,0)})
    top.addView(textCol,LinearLayout.LayoutParams(0,-2,1f));row.addView(top)
-   val n=served[f.id]?:0L;val pct=if(f.size>0)(n*100/f.size).coerceIn(0,100)else 0
+   val n=served[f.id]?:0L;val pct=if(f.size>0)(n*100/f.size).coerceIn(0L,100L).toInt()else 0
    val progressLabel=label("${f.name}  •  ${sizeText(f.size)}  •  served ${pct}%",10f,muted).apply{setPadding(0,dp(7),0,0);maxLines=2}
    row.addView(progressLabel);progressLabels[f.id]=progressLabel
    val progress=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply{max=100;this.progress=pct;progressTintList=android.content.res.ColorStateList.valueOf(silver);progressBackgroundTintList=android.content.res.ColorStateList.valueOf(Color.rgb(48,51,58))}
@@ -453,7 +453,7 @@ class MainActivity : Activity() {
  private fun updatePackageProgress(id:String){
   val entry=files.firstOrNull{it.id==id}?:return
   val sent=served[id]?:0L
-  val pct=if(entry.size>0)(sent*100/entry.size).coerceIn(0,100)else 0
+  val pct=if(entry.size>0)(sent*100/entry.size).coerceIn(0L,100L).toInt()else 0
   progressViews[id]?.progress=pct
   progressLabels[id]?.text="${entry.name}  •  ${sizeText(entry.size)}  •  served ${pct}%"
  }
