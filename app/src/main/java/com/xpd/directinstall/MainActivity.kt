@@ -391,7 +391,7 @@ class MainActivity : Activity() {
   pauseButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_pause,0,0,0)
   refreshQueue()
   status.text="Starting XPD installer through GoldHEN BinLoader 9090…"
-  val bridge=GoldHenPayloadBridge(contentResolver,queueSnapshot,local,
+  val bridge=GoldHenPayloadBridge(this,queueSnapshot,local,
    onStatus={message->activityRef.get()?.runOnUiThread{activityRef.get()?.status?.text=message}},
    onFinished={ok,message->activityRef.get()?.runOnUiThread{
     val activity=activityRef.get()?:return@runOnUiThread
