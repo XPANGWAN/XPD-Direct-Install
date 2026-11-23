@@ -30,7 +30,7 @@ class MainActivity : Activity() {
  private var server:PkgHttpServer?=null; private lateinit var ip:EditText; private lateinit var port:EditText
  private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout; private lateinit var queueSearch:EditText
  private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var stopServerButton:Button; private lateinit var serverInfo:TextView
- private var busy=false; private var scanning=false; private var filterRole="ALL"
+ @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; private var filterRole="ALL"
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();server=TransferRuntime.server;stopServerButton.isEnabled=server!=null;if(server!=null)serverInfo.text="Local file server active on port 9898.";restoreState()}
  private fun buildUi(){
   val root=LinearLayout(this).apply{orientation=1;setPadding(20,22,20,20);setBackgroundColor(bg)}
@@ -258,12 +258,13 @@ class MainActivity : Activity() {
   }
   window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
   serverInfo.text="Phone file server: http://$local:9898/  •  Keep XPD open"
-  busy=true;refreshQueue()
+  transferCancelled=false;busy=true;refreshQueue()
   status.text=if(goldHen)"Preparing GoldHEN installer…" else "Submitting packages to Remote Package Installer…"
   Thread{
    var message=""
    try{
     for((index,entry) in queueSnapshot.withIndex()){
+     if(transferCancelled){message="Transfer stopped by user.";break}
      runOnUiThread{status.text="Sending ${index+1}/${queueSnapshot.size}: ${entry.metadata?.displayTitle?:entry.name}"}
      if(goldHen){
       val result=GoldHenInstaller.install(this,host,local,entry,9898)
@@ -301,6 +302,7 @@ class MainActivity : Activity() {
   }.start()
  }
  private fun stopTransferServer(){
+  transferCancelled=true
   try{startService(Intent(this,TransferForegroundService::class.java).setAction(TransferForegroundService.ACTION_STOP))}catch(_:Exception){
    TransferRuntime.server?.stop();TransferRuntime.server=null
   }
