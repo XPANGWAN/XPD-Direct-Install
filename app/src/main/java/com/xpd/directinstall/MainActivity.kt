@@ -337,6 +337,7 @@ class MainActivity : Activity() {
  }
  private fun refreshQueue(){
   val query=if(::queueSearch.isInitialized)queueSearch.text.toString().trim().lowercase(Locale.ROOT)else ""
+  val familyCounts=files.mapNotNull{it.metadata?.titleId?.takeIf{v->v.isNotBlank()}}.groupingBy{it}.eachCount()
   val visible=files.withIndex().filter{(_,entry)->
    val meta=entry.metadata
    val roleOk=when(filterRole){"BASE"->meta!=null&&!meta.isDlc&&!meta.isUpdate;"UPDATE"->meta?.isUpdate==true;"DLC"->meta?.isDlc==true;else->true}
@@ -358,7 +359,7 @@ class MainActivity : Activity() {
    textCol.addView(label(meta?.displayTitle?.takeIf{it.isNotBlank()}?:f.name,13f,silver).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END})
    val role=when{meta?.isDlc==true->"DLC";meta?.isUpdate==true->"UPDATE";meta?.platform=="PS4"->"BASE GAME";else->""}
    val familyId=meta?.titleId.orEmpty()
-   val familyCount=if(familyId.isBlank())0 else files.count{it.metadata?.titleId==familyId}
+   val familyCount=familyCounts[familyId]?:0
    val familyTag=if(familyCount>1)"FAMILY $familyCount" else ""
    val subtitle=listOfNotNull(meta?.platform,familyId.takeIf{it.isNotBlank()},meta?.version?.takeIf{it.isNotBlank()},role.takeIf{it.isNotBlank()},familyTag.takeIf{it.isNotBlank()}).joinToString("  •  ")
    if(subtitle.isNotBlank())textCol.addView(label(subtitle,10f,muted).apply{setPadding(0,dp(4),0,0)})
