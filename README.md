@@ -1,33 +1,37 @@
 # XPD Direct Install
 
-Native Android application for sending PlayStation PKG files over a local network. The project follows the practical workflow of [Loopayeh/pkg-sender](https://github.com/Loopayeh/pkg-sender), with an Android-native interface, storage access and transfer lifecycle.
+Native Android application for sending PlayStation 4 PKG files over a local network.
 
-## Current implementation — 0.9.3
+## Current implementation — 0.9.4
 
 - Native black-and-silver interface with XPD wolf mark.
-- Add individual PKG files or recursively scan a selected folder; .pkg extension matching is case-insensitive and the container signature is validated.
-- Read PS4 CNT and PS5 FIH package metadata where available, including title, Title ID, Content ID, category and version; extract embedded PNG icons.
-- Search by title, filename, Title ID or Content ID; filter BASE/UPDATE/DLC; group related entries by Title ID count; remove and reorder queue entries.
-- Pause/resume between package submissions and retry the failed/pending portion of the queue.
-- Discover compatible receivers on the local Wi-Fi network.
+- Add individual PS4 PKG files or recursively scan a selected folder.
+- Validate PS4 CNT package headers and read package metadata where available.
+- Search package titles, filenames, Title IDs and Content IDs.
+- Pause/resume between package submissions and retry failed or pending transfers.
+- Discover PS4 receivers on the local Wi-Fi network.
 - PS4: send through Remote Package Installer on port 12800 or GoldHEN payload server on 9090/9021/9020.
-- PS5: upload the bundled pkg-receiver.elf through Payload Manager (default web port 8084), launch it, then send PS5 PKG files to the receiver on port 12800.
+- GoldHEN installer integration sends the package manifest and metadata to the PS4 callback.
 - Local phone HTTP server on port 9898 supports GET, HEAD and byte-range requests.
-- Foreground data-sync service and bounded CPU wake lock keep the local file server alive when the Activity is backgrounded; Stop File Server shuts it down.
+- Foreground data-sync service keeps the local file server available while the console downloads.
 - Selected file URIs and console settings are persisted when Android grants access.
 
 ## Transfer workflow
 
-1. Keep the phone and console on the same reachable LAN.
-2. Select PKG files or scan a folder.
-3. For PS4, enable RPI or GoldHEN on the console. For PS5, start Payload Manager and use INSTALL PS5 RECEIVER first.
-4. Enter the console IP, select the matching receiver port, and start the queue.
-5. A successful receiver response means the package request was accepted; it is not a guarantee that the console completed installation.
-6. Keep the phone file server active while the console downloads. Use Stop File Server after the downloads finish; then the next queue or retry can start.
+1. Keep the phone and PS4 on the same reachable LAN.
+2. Select PS4 PKG files or scan a folder.
+3. Enable Remote Package Installer or GoldHEN on the PS4.
+4. Enter the PS4 IP address and test the receiver.
+5. Start the queue and keep the phone file server active while the PS4 downloads.
+6. A successful receiver response means the package request was accepted; it does not guarantee installation completion.
+
+## PS4 payload status
+
+The current GoldHEN installer payload is retained temporarily so the existing PS4 installation path is not broken while an independently implemented replacement is developed and tested. It will only be removed after the replacement passes a real-console test.
 
 ## Build
 
-The Android Actions workflow builds a debug APK on every push to main. Download the xpd-direct-install-debug-apk artifact from a successful run.
+The Android Actions workflow builds a debug APK on every push to main. Download the `xpd-direct-install-debug-apk` artifact from a successful run.
 
 A signed release APK is built only when these GitHub Actions secrets are configured:
 
@@ -36,15 +40,16 @@ A signed release APK is built only when these GitHub Actions secrets are configu
 - XPD_KEY_ALIAS
 - XPD_KEY_PASSWORD
 
-Keep the keystore private and backed up. Upgradeable releases must keep application ID com.xpd.directinstall and the same signing key, with a higher version code.
+Keep the keystore private and backed up. Upgradeable releases must keep application ID `com.xpd.directinstall` and the same signing key, with a higher version code.
 
 ## Third-party notices
 
-- The PS4 GoldHEN installer payload and PS5 pkg-receiver.elf are from [Loopayeh/pkg-sender](https://github.com/Loopayeh/pkg-sender), under its MIT license. The PS5 receiver asset is bundled as Base64 text and decoded at runtime. See THIRD_PARTY_NOTICES.md.
-- XPD's Kotlin UI, package metadata reader, local HTTP server and Android integration are maintained in this repository.
+The temporary PS4 GoldHEN installer payload is from [Loopayeh/pkg-sender](https://github.com/Loopayeh/pkg-sender), under its MIT license. See `THIRD_PARTY_NOTICES.md`.
+
+XPD's Kotlin UI, package metadata reader, local HTTP server and Android integration are maintained in this repository.
 
 ## Requirements and limitations
 
-- A compatible receiver must already be available on the console; the PS5 receiver can be deployed by the app through Payload Manager.
-- The phone and console must be reachable on the same local network. GoldHEN also needs to connect back to the phone's callback listener.
+- A compatible PS4 receiver must already be available on the console.
+- The phone and PS4 must be reachable on the same local network.
 - This project does not bypass console signing, licensing, firmware or installation restrictions.
