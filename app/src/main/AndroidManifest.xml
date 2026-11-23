@@ -10,8 +10,8 @@
     <application
         android:allowBackup="false"
         android:label="XPD Direct Install"
-        android:icon="@drawable/xpd_wolf_mark"
-        android:roundIcon="@drawable/xpd_wolf_mark"
+        android:icon="@drawable/ic_xpd_mark"
+        android:roundIcon="@drawable/ic_xpd_mark"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="true">
 
