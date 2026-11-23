@@ -21,12 +21,11 @@ import java.util.Collections
 import java.util.Locale
 import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
 
 class MainActivity : Activity() {
  private val silver=Color.rgb(205,210,218); private val muted=Color.rgb(145,151,160)
  private val panel=Color.rgb(27,29,34); private val bg=Color.rgb(12,13,16)
- private val files=mutableListOf<PkgEntry>(); private val served=ConcurrentHashMap<String,Long>()
+ private val files=mutableListOf<PkgEntry>(); private val served=ConcurrentHashMap<String,Long>(); private val progressViews=ConcurrentHashMap<String,ProgressBar>(); private val progressLabels=ConcurrentHashMap<String,TextView>()
  private var server:PkgHttpServer?=null; private lateinit var ip:EditText; private lateinit var port:EditText
  private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout; private lateinit var queueSearch:EditText
  private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var stopServerButton:Button; private lateinit var serverInfo:TextView
@@ -238,14 +237,9 @@ class MainActivity : Activity() {
   val activityRef=WeakReference(this)
   val queueSnapshot=files.toList()
   val servedCounts=served
-  val lastUiRefresh=AtomicLong(0L)
   val s=PkgHttpServer(contentResolver,9898,queueSnapshot,publicHost=local,onBytes={id,n->
    servedCounts.compute(id){_,old->((old?:0L)+n).let{v->val size=queueSnapshot.firstOrNull{it.id==id}?.size?:-1L;if(size>0)v.coerceAtMost(size)else v}}
-   val now=android.os.SystemClock.uptimeMillis()
-   val previous=lastUiRefresh.get()
-   if(now-previous>=300&&lastUiRefresh.compareAndSet(previous,now)){
-    activityRef.get()?.runOnUiThread{activityRef.get()?.refreshQueue()}
-   }
+   activityRef.get()?.runOnUiThread{activityRef.get()?.updatePackageProgress(id)}
   },onServerError={m->activityRef.get()?.runOnUiThread{activityRef.get()?.status?.text=m}})
   TransferRuntime.server?.stop();TransferRuntime.server=null;server?.stop();server=null
   if(!s.start()){status.text="Could not start local HTTP server on port 9898.";return}
@@ -345,7 +339,7 @@ class MainActivity : Activity() {
    roleOk&&searchOk
   }
   fileInfo.text=if(files.isEmpty())"No packages selected" else "${files.size} package(s) • showing ${visible.size}"
-  queue.removeAllViews()
+  queue.removeAllViews();progressViews.clear();progressLabels.clear()
   if(files.isEmpty()){queue.addView(label("Add PKG files or scan a folder to build your library.",11f,muted).apply{setPadding(2,dp(8),2,dp(8))})}
   else if(visible.isEmpty()){queue.addView(label("No packages match this search or filter.",11f,muted).apply{setPadding(2,dp(8),2,dp(8))})}
   visible.forEach{(index,f)->
@@ -365,9 +359,10 @@ class MainActivity : Activity() {
    if(subtitle.isNotBlank())textCol.addView(label(subtitle,10f,muted).apply{setPadding(0,dp(4),0,0)})
    top.addView(textCol,LinearLayout.LayoutParams(0,-2,1f));row.addView(top)
    val n=served[f.id]?:0L;val pct=if(f.size>0)(n*100/f.size).coerceIn(0,100)else 0
-   row.addView(label("${f.name}  •  ${sizeText(f.size)}  •  served ${pct}%",10f,muted).apply{setPadding(0,dp(7),0,0);maxLines=2})
+   val progressLabel=label("${f.name}  •  ${sizeText(f.size)}  •  served ${pct}%",10f,muted).apply{setPadding(0,dp(7),0,0);maxLines=2}
+   row.addView(progressLabel);progressLabels[f.id]=progressLabel
    val progress=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply{max=100;this.progress=pct;progressTintList=android.content.res.ColorStateList.valueOf(silver);progressBackgroundTintList=android.content.res.ColorStateList.valueOf(Color.rgb(48,51,58))}
-   row.addView(progress,lp(-1,dp(5)).apply{topMargin=dp(8)})
+   row.addView(progress,lp(-1,dp(5)).apply{topMargin=dp(8)});progressViews[f.id]=progress
    val actions=LinearLayout(this).apply{orientation=0;gravity=Gravity.END}
    actions.addView(button("UP"){if(!busy&&index>0){Collections.swap(files,index,index-1);refreshQueue();saveState()}}.apply{isEnabled=!busy&&index>0},lp(dp(64),dp(32)).apply{rightMargin=dp(6)})
    actions.addView(button("DOWN"){if(!busy&&index<files.lastIndex){Collections.swap(files,index,index+1);refreshQueue();saveState()}}.apply{isEnabled=!busy&&index<files.lastIndex},lp(dp(72),dp(32)).apply{rightMargin=dp(6)})
@@ -376,6 +371,13 @@ class MainActivity : Activity() {
    queue.addView(row,lp(-1,-2).apply{topMargin=dp(7)})
   }
   send.isEnabled=files.isNotEmpty()&&!busy;clear.isEnabled=!busy
+ }
+ private fun updatePackageProgress(id:String){
+  val entry=files.firstOrNull{it.id==id}?:return
+  val sent=served[id]?:0L
+  val pct=if(entry.size>0)(sent*100/entry.size).coerceIn(0,100)else 0
+  progressViews[id]?.progress=pct
+  progressLabels[id]?.text="${entry.name}  •  ${sizeText(entry.size)}  •  served ${pct}%"
  }
  private fun sizeText(n:Long):String{if(n<0)return "Size unknown";val mb=n/1048576.0;return if(mb>=1024)String.format(Locale.US,"%.2f GB",mb/1024)else String.format(Locale.US,"%.1f MB",mb)}
  @Deprecated("Legacy result callback")
