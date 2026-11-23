@@ -241,8 +241,10 @@ class MainActivity : Activity() {
   Thread{val detected=detectReceiverPort(host);runOnUiThread{if(detected!=null){port.setText(detected.toString());status.text="Receiver detected on port $detected."}else status.text="No supported receiver found on port 12800 or 9090.";check.isEnabled=true}}.start()
  }
  private fun detectReceiverPort(host:String):Int?{
-  val gold=probeHttp(host,9090,"/status","GoldHEN");if(gold.contains("status endpoint is ready",true))return 9090
-  val rpi=probeHttp(host,12800,"/api","RPI");if(rpi.contains("PKG receiver detected",true))return 12800
+  val rpi=probeHttp(host,12800,"/api","RPI")
+  if(rpi.contains("PKG receiver detected",true)||rpi.contains("Port 12800 responded",true))return 12800
+  val gold=probeHttp(host,9090,"/status","GoldHEN")
+  if(gold.contains("status endpoint is ready",true))return 9090
   return null
  }
  private fun probeTcp(host:String,p:Int):Boolean{return try{java.net.Socket().use{it.connect(java.net.InetSocketAddress(host,p),2500);true}}catch(_:Exception){false}}
