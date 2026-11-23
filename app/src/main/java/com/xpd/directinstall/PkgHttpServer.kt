@@ -65,7 +65,7 @@ class PkgHttpServer(
             val output = client.getOutputStream()
             val request = readLine(input) ?: return
             val parts = request.split(" ")
-            if (parts.size < 2) {
+            if (parts.size != 3 || !parts[2].startsWith("HTTP/1.")) {
                 respond(output, 400, "Bad Request", "Invalid request")
                 return
             }
