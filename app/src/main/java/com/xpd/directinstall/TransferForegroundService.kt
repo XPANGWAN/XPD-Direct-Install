@@ -77,12 +77,16 @@ class TransferForegroundService : Service() {
                 acquire(5L * 60L * 60L * 1000L)
             }
         }
-        if (wifiLock?.isHeld != true) {
-            val wifi = applicationContext.getSystemService(WIFI_SERVICE) as? WifiManager
-            wifiLock = wifi?.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "XPD:PkgTransferWifi")?.apply {
-                setReferenceCounted(false)
-                acquire()
+        try {
+            if (wifiLock?.isHeld != true) {
+                val wifi = applicationContext.getSystemService(WIFI_SERVICE) as? WifiManager
+                wifiLock = wifi?.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "XPD:PkgTransferWifi")?.apply {
+                    setReferenceCounted(false)
+                    acquire()
+                }
             }
+        } catch (_: Exception) {
+            wifiLock = null
         }
     }
 
