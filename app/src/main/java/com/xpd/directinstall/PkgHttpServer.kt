@@ -30,7 +30,7 @@ class PkgHttpServer(
     fun start(): Boolean {
         if (running.get()) return true
         return try {
-            val socket = ServerSocket(port, 16, java.net.InetAddress.getByName("0.0.0.0"))
+            val socket = ServerSocket().apply { reuseAddress = true; bind(java.net.InetSocketAddress("0.0.0.0", port), 16) }
             server = socket
             running.set(true)
             Thread {
