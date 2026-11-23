@@ -18,7 +18,7 @@ object GoldHenInstaller {
         consoleIp: String,
         phoneIp: String,
         entry: PkgEntry,
-        serverPort: Int = 8080
+        serverPort: Int = 9898
     ): GoldHenResult {
         val meta = entry.metadata
         if (meta == null || meta.platform != "PS4" || !meta.validContainer ||
