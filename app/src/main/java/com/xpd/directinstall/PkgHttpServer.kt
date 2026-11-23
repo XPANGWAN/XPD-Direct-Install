@@ -221,7 +221,20 @@ class PkgHttpServer(
             pfd.use {
                 FileInputStream(it.fileDescriptor).use { stream ->
                     val channel = stream.channel
-                    channel.position(start)
+                    try {
+                        channel.position(start)
+                    } catch (_: Exception) {
+                        // Some SAF/cloud providers expose a forward-only pipe rather than a seekable file.
+                        var toSkip = start
+                        while (toSkip > 0) {
+                            val skipped = stream.skip(toSkip)
+                            if (skipped > 0) toSkip -= skipped
+                            else {
+                                if (stream.read() < 0) throw java.io.EOFException("Package ended before requested byte range")
+                                toSkip--
+                            }
+                        }
+                    }
                     val buffer = ByteArray(128 * 1024)
                     var remaining = length
                     while (remaining > 0 && running.get()) {
