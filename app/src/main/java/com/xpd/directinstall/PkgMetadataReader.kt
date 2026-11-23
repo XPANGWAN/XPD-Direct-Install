@@ -11,8 +11,8 @@ import java.nio.channels.FileChannel
 /**
  * Read-only PS4 package metadata reader.
  *
- * The CNT/FIH container layout and metadata field mapping were independently
- * implemented for XPD. Reference project: Loopayeh/pkg-sender (MIT).
+ * The PS4 CNT container layout and metadata field mapping were independently
+ * implemented for XPD.
  * No upstream source or payload binary is copied into this file.
  */
 data class PkgMetadata(
