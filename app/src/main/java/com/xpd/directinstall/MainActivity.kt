@@ -159,30 +159,89 @@ class MainActivity : Activity() {
   }catch(e:Exception){"No $kind response on $p: "+(e.message?:"connection failed")}finally{conn?.disconnect()}
  }
  private fun sendFiles(){
-  if(busy)return;if(files.isEmpty()){status.text="Add at least one .pkg file.";return}
-  val host=ip.text.toString().trim();val p=port.text.toString().toIntOrNull()
-  if(!validIp(host)){status.text="Enter a valid PS4 IPv4 address.";return};if(p==null||p !in 1..65535){status.text="Enter a valid receiver port.";return}
-  if(p==9090){status.text="GoldHEN uses payload injection, not the RPI /api/install request. This build detects GoldHEN but does not yet send PKG through it.";return}
-  if(p!=12800){status.text="RPI installation is supported on port 12800 in this build.";return}
-  val local=localIp()?:run{status.text="Connect phone and PS4 to the same Wi-Fi network.";return}
-  val s=PkgHttpServer(contentResolver,8080,files.toList(),onBytes={id,n->served.compute(id){_,old->((old?:0L)+n).let{v->val size=files.firstOrNull{it.id==id}?.size?:-1L;if(size>0)v.coerceAtMost(size)else v}};runOnUiThread{refreshQueue()}},onServerError={m->runOnUiThread{status.text=m}})
+  if(busy)return
+  if(files.isEmpty()){status.text="Add at least one .pkg file.";return}
+  val host=ip.text.toString().trim()
+  val p=port.text.toString().toIntOrNull()
+  if(!validIp(host)){status.text="Enter a valid PlayStation IPv4 address.";return}
+  if(p==null||p !in 1..65535){status.text="Enter a valid receiver port.";return}
+  val goldHen=p==9090||p==9021||p==9020
+  if(!goldHen&&p!=12800){status.text="Use RPI port 12800 or a GoldHEN binloader port (9090, 9021 or 9020).";return}
+  if(goldHen&&files.any{it.metadata?.platform!="PS4"}){status.text="GoldHEN installation currently accepts PS4 PKG files only.";return}
+  val local=localIp(host)?:run{status.text="Could not find a phone IPv4 address on the same LAN as the console.";return}
+  val s=PkgHttpServer(contentResolver,8080,files.toList(),publicHost=local,onBytes={id,n->
+   served.compute(id){_,old->((old?:0L)+n).let{v->val size=files.firstOrNull{it.id==id}?.size?:-1L;if(size>0)v.coerceAtMost(size)else v}}
+   runOnUiThread{refreshQueue()}
+  },onServerError={m->runOnUiThread{status.text=m}})
   server?.stop();server=null
-  if(!s.start()){status.text="Could not start local server on port 8080.";return}
-  server=s;window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-  serverInfo.text="Phone server: http://$local:8080/";busy=true;send.isEnabled=false;status.text="Submitting package queue to PS4…"
-  Thread{var c:HttpURLConnection?=null;val msg=try{
-   val links=JSONArray();files.forEach{links.put("http://$local:8080/pkg/${it.id}")}
-   val json=JSONObject().put("type","direct").put("packages",links)
-   c=URL("http://$host:$p/api/install").openConnection() as HttpURLConnection;c.requestMethod="POST";c.connectTimeout=10000;c.readTimeout=15000;c.doOutput=true;c.setRequestProperty("Content-Type","application/json")
-   c.outputStream.use{it.write(json.toString().toByteArray(Charsets.UTF_8))}
-   val code=c.responseCode;val body=(if(code in 200..299)c.inputStream else c.errorStream)?.bufferedReader()?.use{it.readText()}?:""
-   if(code in 200..299&&body.contains("success",true))"RPI accepted the package request. Confirm the download and installation on the PS4.\n$body" else "RPI did not confirm acceptance (HTTP $code).\n$body"
-  }catch(e:Exception){"Could not submit packages: "+(e.message?:"network error")}finally{c?.disconnect()}
-  runOnUiThread{status.text=msg;busy=false;send.isEnabled=files.isNotEmpty()}
+  if(!s.start()){status.text="Could not start local HTTP server on port 8080.";return}
+  server=s
+  window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+  serverInfo.text="Phone file server: http://$local:8080/  •  Keep XPD open"
+  busy=true;send.isEnabled=false;clear.isEnabled=false
+  status.text=if(goldHen)"Preparing GoldHEN installer…" else "Submitting packages to Remote Package Installer…"
+  Thread{
+   var message=""
+   try{
+    for((index,entry) in files.withIndex()){
+     runOnUiThread{status.text="Sending ${index+1}/${files.size}: ${entry.metadata?.displayTitle?:entry.name}"}
+     if(goldHen){
+      val result=GoldHenInstaller.install(this,host,local,entry,8080)
+      if(!result.success){message="Package ${index+1} failed: ${result.message}";break}
+      message=result.message
+     }else{
+      var c:HttpURLConnection?=null
+      val result=try{
+       val fileUrl="http://$local:8080/pkg/${entry.id}"
+       val body=JSONObject().put("type","direct").put("packages",JSONArray().put(fileUrl))
+       val title=entry.metadata?.displayTitle?.takeIf{it.isNotBlank()}
+       if(title!=null)body.put("name",title)
+       c=URL("http://$host:12800/api/install").openConnection() as HttpURLConnection
+       c.requestMethod="POST";c.connectTimeout=10000;c.readTimeout=15000;c.doOutput=true
+       c.setRequestProperty("Content-Type","application/json")
+       c.outputStream.use{it.write(body.toString().toByteArray(Charsets.UTF_8))}
+       val code=c.responseCode
+       val reply=(if(code in 200..299)c.inputStream else c.errorStream)?.bufferedReader()?.use{it.readText()}?:""
+       if(code in 200..299&&reply.contains("success",true))"RPI accepted: ${entry.name}" else "RPI rejected ${entry.name} (HTTP $code): $reply"
+      }catch(e:Exception){"RPI request failed for ${entry.name}: ${e.message?: "network error"}"}
+      finally{c?.disconnect()}
+      if(!result.startsWith("RPI accepted:")){message=result;break}
+      message=result
+     }
+    }
+    if(message.isBlank())message="No package request was completed."
+    if(message.startsWith("RPI accepted:"))message="RPI accepted the last submitted package. Confirm downloads and installation on the console. $message"
+   }catch(e:Exception){message="Transfer stopped: ${e.message?: "unexpected error"}"}
+   runOnUiThread{
+    status.text=message
+    busy=false
+    send.isEnabled=files.isNotEmpty()
+    clear.isEnabled=true
+   }
   }.start()
  }
- private fun localIp():String? {
-  return try { val all=NetworkInterface.getNetworkInterfaces() ?: return null; for(n in Collections.list(all)) if(n.isUp && !n.isLoopback) for(a in Collections.list(n.inetAddresses)) if(a is Inet4Address && a.isSiteLocalAddress && !a.isLoopbackAddress) return a.hostAddress; null } catch(_:Exception) { null }
+ private fun localIp(targetIp:String?=null):String? {
+  return try {
+   val target=targetIp?.let{Inet4Address.getByName(it).address}
+   val all=NetworkInterface.getNetworkInterfaces()?:return null
+   val interfaces=Collections.list(all).filter{it.isUp&&!it.isLoopback}
+   if(target!=null){
+    for(n in interfaces)for(ifa in n.interfaceAddresses){
+     val addr=ifa.address as? Inet4Address?:continue
+     val bytes=addr.address
+     val prefix=ifa.networkPrefixLength.toInt().coerceIn(0,32)
+     var same=true
+     for(i in 0..3){
+      val bits=(prefix-i*8).coerceIn(0,8)
+      val mask=if(bits==0)0 else (0xff shl (8-bits)) and 0xff
+      if((bytes[i].toInt() and 255 and mask)!=(target[i].toInt() and 255 and mask)){same=false;break}
+     }
+     if(same&&addr.isSiteLocalAddress)return addr.hostAddress
+    }
+   }
+   for(n in interfaces)for(a in Collections.list(n.inetAddresses))if(a is Inet4Address&&a.isSiteLocalAddress&&!a.isLoopbackAddress)return a.hostAddress
+   null
+  }catch(_:Exception){null}
  }
  private fun refreshQueue(){
   fileInfo.text=if(files.isEmpty())"No packages selected" else "${files.size} package(s) selected"
