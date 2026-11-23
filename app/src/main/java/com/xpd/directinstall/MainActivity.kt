@@ -331,7 +331,7 @@ class MainActivity : Activity() {
   if(requestCode==42){
    val tree=data?.data
    if(resultCode==RESULT_OK&&tree!=null){
-    val grantedFlags=(data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    val grantedFlags=((data?.flags?:0) and Intent.FLAG_GRANT_READ_URI_PERMISSION)
     try{contentResolver.takePersistableUriPermission(tree,grantedFlags)}catch(_:SecurityException){}
     scanFolder(tree)
    }
