@@ -93,7 +93,7 @@ class GoldHenPayloadBridge(
                         data.writeStringLE(url)
                         data.writeStringLE(name)
                         data.writeStringLE(packageId)
-                        data.writeStringLE("PS4GD")
+                        data.writeStringLE(packageType(meta))
                         data.writeLongLE(entry.size.coerceAtLeast(0L))
                         data.writeIntLE(icon.size)
                         if (icon.isNotEmpty()) data.write(icon)
@@ -122,6 +122,12 @@ class GoldHenPayloadBridge(
             try { listener.close() } catch (_: Exception) {}
             service = null
         }
+    }
+
+    private fun packageType(meta: PkgMetadata?): String = when (meta?.category?.lowercase()) {
+        "ac" -> "PS4AC"
+        "gp", "patch" -> "PS4GP"
+        else -> "PS4GD"
     }
 
     private fun acceptPayloadConnection(listener: ServerSocket): Socket {
