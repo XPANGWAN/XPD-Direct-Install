@@ -8,6 +8,11 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      XPD_KEYSTORE_BASE64: ${{ secrets.XPD_KEYSTORE_BASE64 }}
+      XPD_KEYSTORE_PASSWORD: ${{ secrets.XPD_KEYSTORE_PASSWORD }}
+      XPD_KEY_ALIAS: ${{ secrets.XPD_KEY_ALIAS }}
+      XPD_KEY_PASSWORD: ${{ secrets.XPD_KEY_PASSWORD }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
