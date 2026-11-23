@@ -31,7 +31,7 @@ class MainActivity : Activity() {
  private var server:PkgHttpServer?=null; private lateinit var ip:EditText; private lateinit var port:EditText
  private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout; private lateinit var queueSearch:EditText
  private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var stopServerButton:Button; private lateinit var pauseButton:Button; private lateinit var retryButton:Button; private lateinit var ps5WebPort:EditText; private lateinit var installPs5ReceiverButton:Button; private lateinit var serverInfo:TextView
- @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; @Volatile private var paused=false; private val retryEntries=mutableListOf<PkgEntry>(); private var filterRole="ALL"
+ @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; @Volatile private var paused=false; private val retryEntries=mutableListOf<PkgEntry>(); private val expandedFamilies=mutableSetOf<String>(); private var filterRole="ALL"
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();server=TransferRuntime.server;stopServerButton.isEnabled=server!=null;if(server!=null)serverInfo.text="Local file server active on port 9898.";restoreState();if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),9098)}
  private fun buildUi(){
   val root=LinearLayout(this).apply{orientation=1;setPadding(20,22,20,20);setBackgroundColor(bg)}
@@ -404,7 +404,17 @@ class MainActivity : Activity() {
   queue.removeAllViews();progressViews.clear();progressLabels.clear()
   if(files.isEmpty()){queue.addView(label("Add PKG files or scan a folder to build your library.",11f,muted).apply{setPadding(2,dp(8),2,dp(8))})}
   else if(visible.isEmpty()){queue.addView(label("No packages match this search or filter.",11f,muted).apply{setPadding(2,dp(8),2,dp(8))})}
-  visible.forEach{(index,f)->
+  val groupedVisible=visible.groupBy{(_,entry)->entry.metadata?.titleId?.takeIf{it.isNotBlank()}?:("single:"+entry.id)}
+  groupedVisible.forEach{(familyKey,familyItems)->
+   val familyTitleId=familyItems.firstOrNull()?.value?.metadata?.titleId.orEmpty()
+   val familyTotal=if(familyTitleId.isNotBlank())familyCounts[familyTitleId]?:familyItems.size else familyItems.size
+   if(familyTotal>1){
+    val expanded=familyKey in expandedFamilies
+    val headerText="${if(expanded)"▾" else "▸"}  GAME FAMILY  •  $familyTitleId  •  $familyTotal PACKAGES  •  ${familyItems.size} SHOWN"
+    queue.addView(button(headerText){if(expanded)expandedFamilies.remove(familyKey)else expandedFamilies.add(familyKey);refreshQueue()},lp(-1,dp(42)).apply{topMargin=dp(8)})
+   }
+   if(familyTotal<=1||familyKey in expandedFamilies){
+    familyItems.forEach{(index,f)->
    val row=LinearLayout(this).apply{orientation=1;setPadding(dp(12),dp(10),dp(12),dp(10));background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(19,21,25));cornerRadius=dp(12).toFloat();setStroke(1,Color.rgb(45,48,55))}}
    val meta=f.metadata
    val top=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
@@ -431,6 +441,8 @@ class MainActivity : Activity() {
    actions.addView(button("REMOVE"){if(!busy){files.removeAll{it.id==f.id};retryEntries.removeAll{it.id==f.id};served.remove(f.id);refreshQueue();saveState()}},lp(dp(88),dp(32)))
    row.addView(actions,lp(-1,dp(34)).apply{topMargin=dp(8)})
    queue.addView(row,lp(-1,-2).apply{topMargin=dp(7)})
+    }
+   }
   }
   send.isEnabled=files.isNotEmpty()&&!busy;clear.isEnabled=!busy
   if(::retryButton.isInitialized&&!busy)retryButton.isEnabled=retryEntries.isNotEmpty()
