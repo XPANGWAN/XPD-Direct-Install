@@ -19,6 +19,7 @@ class PkgHttpServer(
     private val resolver: ContentResolver,
     private val port: Int,
     private val entries: List<PkgEntry>,
+    private val publicHost: String = "127.0.0.1",
     private val onBytes: (String, Long) -> Unit,
     private val onServerError: (String) -> Unit
 ) {
@@ -83,6 +84,13 @@ class PkgHttpServer(
                 respond(output, 405, "Method Not Allowed", "Only GET and HEAD are supported")
                 return
             }
+            if (path.startsWith("/manifest/")) {
+                val id = path.removePrefix("/manifest/")
+                val entry = entries.firstOrNull { it.id == id }
+                if (entry == null) { respond(output,404,"Not Found","Package not found"); return }
+                serveManifest(entry, method == "HEAD", output)
+                return
+            }
             val id = path.removePrefix("/pkg/")
             val entry = entries.firstOrNull { it.id == id }
             if (entry == null || !path.startsWith("/pkg/")) {
@@ -91,6 +99,40 @@ class PkgHttpServer(
             }
             serve(entry, method == "HEAD", headers["range"], output)
         }
+    }
+
+    private fun serveManifest(entry: PkgEntry, head: Boolean, output: OutputStream) {
+        val meta = entry.metadata
+        if (entry.size <= 0L || meta == null || meta.digest.length != 64 || meta.platform != "PS4") {
+            respond(output, 422, "Unprocessable Entity", "A valid PS4 package digest is required for GoldHEN")
+            return
+        }
+        val pieces = when {
+            entry.size >= (1L shl 30) -> 4
+            entry.size >= (256L shl 20) -> 2
+            else -> 1
+        }
+        val url = "http://$publicHost:$port/pkg/\${entry.id}"
+        val json = StringBuilder()
+            .append("{\"originalFileSize\":").append(entry.size)
+            .append(",\"packageDigest\":\"").append(meta.digest).append('"')
+            .append(",\"numberOfSplitFiles\":").append(pieces)
+            .append(",\"pieces\":[")
+        for (i in 0 until pieces) {
+            if (i > 0) json.append(',')
+            val offset = entry.size * i / pieces
+            val length = entry.size * (i + 1) / pieces - offset
+            json.append("{\"url\":\"").append(url).append('"')
+                .append(",\"fileOffset\":").append(offset)
+                .append(",\"fileSize\":").append(length)
+                .append(",\"hashValue\":\"0000000000000000000000000000000000000000\"}")
+        }
+        json.append("]}")
+        val bytes = json.toString().toByteArray(Charsets.UTF_8)
+        val header = "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: \${bytes.size}\r\nConnection: close\r\n\r\n"
+        output.write(header.toByteArray(Charsets.US_ASCII))
+        if (!head) output.write(bytes)
+        output.flush()
     }
 
     private fun serve(entry: PkgEntry, head: Boolean, rangeHeader: String?, output: OutputStream) {
