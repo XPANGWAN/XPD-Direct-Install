@@ -336,7 +336,7 @@ class MainActivity : Activity() {
     val elf=Base64.decode(encoded,Base64.DEFAULT)
     if(elf.isEmpty())throw IllegalStateException("PS5 receiver payload is empty")
     val upload=URL("http://$host:$webPort/manage:upload?filename=pkg-receiver.elf").openConnection() as HttpURLConnection
-    val uploadReply=try{
+    try{
      upload.requestMethod="POST";upload.connectTimeout=15000;upload.readTimeout=90000;upload.doOutput=true
      upload.setRequestProperty("Content-Type","application/octet-stream")
      upload.setFixedLengthStreamingMode(elf.size)
@@ -344,7 +344,6 @@ class MainActivity : Activity() {
      val code=upload.responseCode
      val body=(if(code in 200..299)upload.inputStream else upload.errorStream)?.bufferedReader()?.use{it.readText()}?:""
      if(code !in 200..299||!body.contains("OK",true))throw IllegalStateException("Receiver upload failed (HTTP $code): $body")
-     body
     }finally{upload.disconnect()}
     val launch=URL("http://$host:$webPort/loadpayload:pkg-receiver.elf").openConnection() as HttpURLConnection
     try{
