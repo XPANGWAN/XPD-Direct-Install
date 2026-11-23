@@ -184,7 +184,7 @@ class MainActivity : Activity() {
      }
     }
     scanning=false;refreshQueue();saveState()
-    status.text=if(added>0)"Folder scan complete: $added PKG file(s) added from $inspected candidate(s)." else "No new valid .pkg files found in this folder ($inspected candidates checked)."
+    status.text=if(added>0)"Folder scan complete: $added PKG file(s) added from $inspected file(s) inspected." else "No new valid .pkg files found in this folder ($inspected files inspected)."
    }
   }.start()
  }
