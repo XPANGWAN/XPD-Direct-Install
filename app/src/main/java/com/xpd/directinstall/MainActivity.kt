@@ -86,7 +86,8 @@ class MainActivity : Activity() {
      val name=query(u,OpenableColumns.DISPLAY_NAME)?: "package.pkg"
      if(isValidPkg(u)){
       val size=packageSize(u)
-      files.add(PkgEntry(files.size.toString(),u,displayPkgName(name),size))
+      val metadata=PkgMetadataReader.read(contentResolver,u)
+      files.add(PkgEntry(files.size.toString(),u,displayPkgName(name),size,metadata))
      }
     }catch(_:Exception){}
    }
@@ -175,9 +176,18 @@ class MainActivity : Activity() {
   if(files.isEmpty()){queue.addView(label("Your selected packages will appear here.",11f,muted).apply{setPadding(2,dp(8),2,dp(8))})}
   files.forEachIndexed{i,f->
    val row=LinearLayout(this).apply{orientation=1;setPadding(dp(12),dp(10),dp(12),dp(10));background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(19,21,25));cornerRadius=dp(12).toFloat();setStroke(1,Color.rgb(45,48,55))}}
-   row.addView(label("${i+1}.  ${f.name}",13f,silver).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END})
+   val meta=f.metadata
+   val top=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
+   if(meta?.iconPng!=null){
+    try{val bitmap=android.graphics.BitmapFactory.decodeByteArray(meta.iconPng,0,meta.iconPng.size);if(bitmap!=null){val cover=ImageView(this@MainActivity).apply{setImageBitmap(bitmap);scaleType=ImageView.ScaleType.CENTER_CROP};top.addView(cover,lp(dp(58),dp(58)).apply{rightMargin=dp(12)})}}catch(_:Exception){}
+   }
+   val textCol=LinearLayout(this).apply{orientation=1}
+   textCol.addView(label(meta?.displayTitle?.takeIf{it.isNotBlank()}?:f.name,13f,silver).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END})
+   val subtitle=listOfNotNull(meta?.platform,meta?.titleId?.takeIf{it.isNotBlank()},meta?.version?.takeIf{it.isNotBlank()}).joinToString("  •  ")
+   if(subtitle.isNotBlank())textCol.addView(label(subtitle,10f,muted).apply{setPadding(0,dp(4),0,0)})
+   top.addView(textCol,LinearLayout.LayoutParams(0,-2,1f));row.addView(top)
    val n=served[f.id]?:0L;val pct=if(f.size>0)(n*100/f.size).coerceIn(0,100)else 0
-   row.addView(label("${sizeText(f.size)}   •   sent ${pct}%",10f,muted).apply{setPadding(0,dp(5),0,0)})
+   row.addView(label("${f.name}  •  ${sizeText(f.size)}  •  sent ${pct}%",10f,muted).apply{setPadding(0,dp(7),0,0);maxLines=2})
    queue.addView(row,lp(-1,-2).apply{topMargin=dp(7)})
   }
   send.isEnabled=files.isNotEmpty()&&!busy;clear.isEnabled=!busy
@@ -190,33 +200,12 @@ class MainActivity : Activity() {
    try{contentResolver.takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION)}catch(_:SecurityException){}
    if(!isValidPkg(u)){rejected++;return@forEach}
    val name=query(u,OpenableColumns.DISPLAY_NAME)?:"package.pkg"
-   files.add(PkgEntry(files.size.toString(),u,displayPkgName(name),packageSize(u)));count++}
+   val metadata=PkgMetadataReader.read(contentResolver,u)
+   files.add(PkgEntry(files.size.toString(),u,displayPkgName(name),packageSize(u),metadata));count++}
   status.text=when{count>0&&rejected>0->"$count valid PKG file(s) added; $rejected invalid file(s) skipped.";count>0->"$count valid PKG file(s) added.";rejected>0->"No valid PlayStation PKG found. Check the selected file.";else->"No new PKG files selected."};refreshQueue();saveState()
  }
  private fun displayPkgName(name:String)=if(name.lowercase(Locale.ROOT).endsWith(".pkg"))name else name+".pkg"
- private fun isValidPkg(u:Uri):Boolean {
-  return try {
-   val size=packageSize(u)
-   if(size>=0L&&size<4L)return false
-   val magic=ByteArray(4)
-   val read=try {
-    contentResolver.openFileDescriptor(u,"r")?.use { pfd ->
-     android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd).use { stream ->
-      var offset=0
-      while(offset<magic.size){val n=stream.read(magic,offset,magic.size-offset);if(n<=0)break;offset+=n}
-      offset
-     }
-    }?:0
-   } catch(_:Exception) {
-    contentResolver.openInputStream(u)?.use { stream ->
-     var offset=0
-     while(offset<magic.size){val n=stream.read(magic,offset,magic.size-offset);if(n<=0)break;offset+=n}
-     offset
-    }?:0
-   }
-   read==4&&magic[0]==0x7f.toByte()&&magic[1]==0x43.toByte()&&magic[2]==0x4e.toByte()&&magic[3]==0x54.toByte()
-  }catch(_:Exception){false}
- }
+ private fun isValidPkg(u:Uri):Boolean = PkgMetadataReader.hasPkgMagic(contentResolver,u)
  private fun packageSize(u:Uri):Long { val column=query(u,OpenableColumns.SIZE)?.toLongOrNull(); if(column!=null&&column>=0)return column; return try{contentResolver.openFileDescriptor(u,"r")?.use{it.statSize}?:-1L}catch(_:Exception){-1L} }
  private fun query(u:Uri,col:String):String?{var c:Cursor?=null;return try{c=contentResolver.query(u,arrayOf(col),null,null,null);if(c!=null&&c.moveToFirst()){val i=c.getColumnIndex(col);if(i>=0&&!c.isNull(i))c.getString(i)else null}else null}catch(_:Exception){null}finally{c?.close()}}
  override fun onDestroy(){server?.stop();window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);super.onDestroy()}
