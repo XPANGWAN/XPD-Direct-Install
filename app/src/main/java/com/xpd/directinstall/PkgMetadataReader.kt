@@ -3,14 +3,13 @@ package com.xpd.directinstall
 import android.content.ContentResolver
 import android.net.Uri
 import android.os.ParcelFileDescriptor
-import org.json.JSONObject
 import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 
 /**
- * Read-only PS4/PS5 package metadata reader.
+ * Read-only PS4 package metadata reader.
  *
  * The CNT/FIH container layout and metadata field mapping were independently
  * implemented for XPD. Reference project: Loopayeh/pkg-sender (MIT).
@@ -63,7 +62,7 @@ object PkgMetadataReader {
                     while (buffer.hasRemaining()) {
                         if (stream.channel.read(buffer) <= 0) return false
                     }
-                    isCntMagic(b) || isFihMagic(b)
+                    isCntMagic(b)
                 }
             }
         } catch (_: Exception) { false }
@@ -72,19 +71,10 @@ object PkgMetadataReader {
     private fun read(channel: FileChannel, fileSize: Long): PkgMetadata {
         if (fileSize < CNT_HEADER_SIZE) return PkgMetadata(size = fileSize, detail = "File is too small to be a PlayStation package")
         val magic = readAt(channel, 0, 4) ?: return PkgMetadata(size = fileSize, detail = "Cannot read package header")
-        val cntBase: Long
-        val platform: String
-        if (isFihMagic(magic)) {
-            platform = "PS5"
-            val fih = readAt(channel, 0, 0x60) ?: return PkgMetadata(size = fileSize, detail = "Invalid PS5 FIH header")
-            val embedded = u64le(fih, 0x58)
-            if (embedded <= 0 || embedded > fileSize - CNT_HEADER_SIZE) return PkgMetadata(size = fileSize, detail = "Invalid embedded CNT offset")
-            cntBase = embedded
-        } else if (isCntMagic(magic)) {
-            platform = "PS4"
-            cntBase = 0
-        } else {
-            return PkgMetadata(size = fileSize, detail = "Unsupported package signature")
+        val platform = "PS4"
+        val cntBase = 0L
+        if (!isCntMagic(magic)) {
+            return PkgMetadata(size = fileSize, detail = "Unsupported PS4 package signature")
         }
 
         val header = readAt(channel, cntBase, CNT_HEADER_SIZE)
@@ -145,30 +135,13 @@ object PkgMetadataReader {
                 category = values["CATEGORY"].orEmpty()
                 version = values["APP_VER"].orEmpty().ifBlank { values["VERSION"].orEmpty() }
             }
-        } else {
-            val json = readEntry(find(0x2000,"param.json"),2L*1024*1024)
-            if (json != null) {
-                try {
-                    val root = JSONObject(String(json,Charsets.UTF_8))
-                    version = root.optString("contentVersion","")
-                    val localized = root.optJSONObject("localizedParameters")
-                    val lang = localized?.optString("defaultLanguage","en-US") ?: "en-US"
-                    title = localized?.optJSONObject(lang)?.optString("titleName","").orEmpty()
-                    if (title.isBlank() && localized != null) {
-                        val keys = localized.keys()
-                        while (keys.hasNext() && title.isBlank()) title = localized.optJSONObject(keys.next())?.optString("titleName","").orEmpty()
-                    }
-                } catch (_: Exception) { }
-            }
-            val mid = contentId.substringAfter('-', contentId).substringBefore('_')
-            if (mid.length in 4..16) titleId = mid
         }
         val iconEntry = entries.firstOrNull { it.id == 0x1200L && it.flags and 0x80000000L == 0L }
             ?: entries.firstOrNull { it.id in 0x1201L..0x1220L && it.flags and 0x80000000L == 0L }
         val icon = readEntry(iconEntry,8L*1024*1024)?.takeIf { it.size >= 8 && it[0] == 0x89.toByte() && it[1] == 0x50.toByte() }
         val isDlc = category.equals("ac",true) || title.contains("DLC",true) || contentId.contains("-DLC",true) || contentId.contains("_DLC",true)
         val isUpdate = category.equals("gp",true) || category.equals("patch",true) || title.contains("Update",true)
-        val valid = if (platform == "PS4") title.isNotBlank() || contentId.isNotBlank() else contentId.isNotBlank()
+        val valid = title.isNotBlank() || contentId.isNotBlank()
         return PkgMetadata(platform,title,titleId,contentId,category,version,fileSize,digest,icon,isDlc,isUpdate,valid,
             if (valid) "Package metadata read successfully" else "Container found, but game metadata was not found")
     }
@@ -219,9 +192,7 @@ object PkgMetadataReader {
         } catch (_: Exception) { null }
     }
     private fun isCntMagic(b: ByteArray) = b.size>=4 && b[0]==0x7f.toByte() && b[1]==0x43.toByte() && b[2]==0x4e.toByte() && b[3]==0x54.toByte()
-    private fun isFihMagic(b: ByteArray) = b.size>=4 && b[0]==0x7f.toByte() && b[1]==0x46.toByte() && b[2]==0x49.toByte() && b[3]==0x48.toByte()
     private fun ascii(b:ByteArray,o:Int,n:Int):String { val end=(o until minOf(o+n,b.size)).firstOrNull{b[it]==0.toByte()}?:minOf(o+n,b.size);return String(b,o,(end-o).coerceAtLeast(0),Charsets.US_ASCII).trim() }
     private fun u32be(b:ByteArray,o:Int):Long = ((b[o].toLong() and 255) shl 24) or ((b[o+1].toLong() and 255) shl 16) or ((b[o+2].toLong() and 255) shl 8) or (b[o+3].toLong() and 255)
     private fun u32le(b:ByteArray,o:Int):Long = (b[o].toLong() and 255) or ((b[o+1].toLong() and 255) shl 8) or ((b[o+2].toLong() and 255) shl 16) or ((b[o+3].toLong() and 255) shl 24)
-    private fun u64le(b:ByteArray,o:Int):Long { var v=0L;for(i in 7 downTo 0)v=(v shl 8) or (b[o+i].toLong() and 255);return v }
 }
