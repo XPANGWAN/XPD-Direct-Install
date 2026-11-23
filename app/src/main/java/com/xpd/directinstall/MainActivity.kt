@@ -276,7 +276,7 @@ class MainActivity : Activity() {
   }
   retryEntries.clear()
   window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-  serverInfo.text="Phone file server: http://$local:9898/  •  Keep XPD open"
+  serverInfo.text="Background file server active: http://$local:9898/"
   transferCancelled=false;paused=false;busy=true;pauseButton.text="PAUSE TRANSFER";pauseButton.isEnabled=true;retryButton.isEnabled=false;refreshQueue()
   status.text=if(goldHen)"Preparing GoldHEN installer…" else "Submitting packages to Remote Package Installer…"
   Thread{
