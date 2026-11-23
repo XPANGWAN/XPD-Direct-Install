@@ -81,7 +81,7 @@ class MainActivity : Activity() {
   server?.stop();server=s;window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
   serverInfo.text="Phone server: http://$local:8080/";busy=true;send.isEnabled=false;status.text="Submitting package queue to PS4…"
   Thread{var c:HttpURLConnection?=null;val msg=try{
-   val links=JSONArray();files.forEach{links.put("http://$local:8080/pkg/\${it.id}")}
+   val links=JSONArray();files.forEach{links.put("http://$local:8080/pkg/${it.id}")}
    val json=JSONObject().put("type","direct").put("packages",links)
    c=URL("http://$host:$p/api/install").openConnection() as HttpURLConnection;c.requestMethod="POST";c.connectTimeout=10000;c.readTimeout=15000;c.doOutput=true;c.setRequestProperty("Content-Type","application/json")
    c.outputStream.use{it.write(json.toString().toByteArray(Charsets.UTF_8))}
@@ -93,8 +93,8 @@ class MainActivity : Activity() {
  }
  private fun localIp():String?=try{val all=NetworkInterface.getNetworkInterfaces()?:return null;for(n in Collections.list(all))if(n.isUp&&!n.isLoopback)for(a in Collections.list(n.inetAddresses))if(a is Inet4Address&&a.isSiteLocalAddress&&!a.isLoopbackAddress)return a.hostAddress;null}catch(_:Exception){null}
  private fun refreshQueue(){
-  fileInfo.text=if(files.isEmpty())"No packages selected" else "\${files.size} package(s) selected"
-  queue.text=if(files.isEmpty())"Your selected packages will appear here." else files.mapIndexed{i,f->val n=served[f.id]?:0L;val pct=if(f.size>0)(n*100/f.size).coerceIn(0,100)else 0;"\${i+1}. \${f.name}\n   \${sizeText(f.size)} • served: $pct%"}.joinToString("\n\n")
+  fileInfo.text=if(files.isEmpty())"No packages selected" else "${files.size} package(s) selected"
+  queue.text=if(files.isEmpty())"Your selected packages will appear here." else files.mapIndexed{i,f->val n=served[f.id]?:0L;val pct=if(f.size>0)(n*100/f.size).coerceIn(0,100)else 0;"${i+1}. ${f.name}\n   ${sizeText(f.size)} • served: $pct%"}.joinToString("\n\n")
   send.isEnabled=files.isNotEmpty()&&!busy
  }
  private fun sizeText(n:Long):String{if(n<0)return "Size unknown";val mb=n/1048576.0;return if(mb>=1024)String.format(Locale.US,"%.2f GB",mb/1024)else String.format(Locale.US,"%.1f MB",mb)}
