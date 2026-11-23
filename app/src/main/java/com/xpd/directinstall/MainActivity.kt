@@ -228,7 +228,7 @@ class MainActivity : Activity() {
    if(kind=="GoldHEN"&&body.contains("status")&&body.contains("ready"))
     "GoldHEN status endpoint is ready on 9090. The payload installer is available; a real console test is still required."
    else if(kind=="RPI"&&(body.contains("Unsupported method",true)&&body.contains("fail",true)))
-    "RPI detected on port $p."
+    "PKG receiver detected on port $p (PS4 RPI / PS5 receiver). "
    else "Port $p responded (HTTP $code), but $kind was not confirmed."
   }catch(e:Exception){"No $kind response on $p: "+(e.message?:"connection failed")}finally{conn?.disconnect()}
  }
