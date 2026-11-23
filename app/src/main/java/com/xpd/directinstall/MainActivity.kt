@@ -43,7 +43,7 @@ class MainActivity : Activity() {
   val brandText=LinearLayout(this).apply{orientation=1}
   brandText.addView(label("XPD",30f,Color.WHITE).apply{typeface=android.graphics.Typeface.create("sans-serif-black",android.graphics.Typeface.BOLD);letterSpacing=.10f})
   brandText.addView(label("DIRECT INSTALL",13f,silver).apply{letterSpacing=.22f})
-  brandText.addView(label("ANDROID PKG SENDER  •  v0.9.1",10f,muted).apply{letterSpacing=.08f;setPadding(1,5,0,0)})
+  brandText.addView(label("ANDROID PKG SENDER  •  v0.9.2",10f,muted).apply{letterSpacing=.08f;setPadding(1,5,0,0)})
   brand.addView(brandText,LinearLayout.LayoutParams(0,-2,1f))
   body.addView(brand,lp(-1,dp(82)).apply{bottomMargin=dp(22)})
   body.addView(sectionHeader("01  /  CONSOLE"))
@@ -101,6 +101,7 @@ class MainActivity : Activity() {
   if(savedIp.isNotEmpty())ip.setText(savedIp)
   val savedPort=prefs().getString("console_port","12800")?:"12800"
   port.setText(savedPort)
+  ps5WebPort.setText(prefs().getString("ps5_web_port","8084")?:"8084")
   val raw=prefs().getString("pkg_uris","[]")?:"[]"
   try{
    val arr=JSONArray(raw)
@@ -125,6 +126,7 @@ class MainActivity : Activity() {
   files.forEach{arr.put(it.uri.toString())}
   prefs().edit().putString("console_ip",ip.text.toString().trim())
    .putString("console_port",port.text.toString().trim())
+   .putString("ps5_web_port",if(::ps5WebPort.isInitialized)ps5WebPort.text.toString().trim() else "8084")
    .putString("pkg_uris",arr.toString()).apply()
  }
  override fun onPause(){saveState();super.onPause()}
@@ -300,7 +302,7 @@ class MainActivity : Activity() {
        c.outputStream.use{it.write(body.toString().toByteArray(Charsets.UTF_8))}
        val code=c.responseCode
        val reply=(if(code in 200..299)c.inputStream else c.errorStream)?.bufferedReader()?.use{it.readText()}?:""
-       val accepted=try{JSONObject(reply).optBoolean("success",false)}catch(_:Exception){false}
+       val accepted=try{val response=JSONObject(reply);response.optBoolean("success",false)||response.optString("status").equals("success",true)}catch(_:Exception){false}
        if(code in 200..299&&accepted)"RPI accepted: ${entry.name}" else "RPI rejected ${entry.name} (HTTP $code): $reply"
       }catch(e:Exception){"RPI request failed for ${entry.name}: ${e.message?: "network error"}"}
       finally{c?.disconnect()}
