@@ -1,5 +1,9 @@
 # Third-party notices
 
+## Android UI design reference
+
+The XPD Android screen layout was independently reimplemented in Kotlin using the general interaction structure of [Loopayeh/pkg-sender](https://github.com/Loopayeh/pkg-sender), including its compact console card, package library, and primary send/status area. No upstream Android C# source was copied into this Kotlin UI. The upstream project is MIT-licensed; its copyright and license notice are retained below for the upstream payload components already used by XPD.
+
 ## PS5 package receiver
 
 The file app/src/main/assets/pkg-receiver.elf.b64 contains the Base64-encoded droid/pkg-receiver.elf binary from [Loopayeh/pkg-sender](https://github.com/Loopayeh/pkg-sender), upstream commit 73804c41c079b1d32c60bf3fd555f90fba1af2e4 (blob 6131e39f7f2a41c18e247d7d902ab98018ac937c). It is distributed under the repository's MIT License and is decoded in memory before upload to the PS5 Payload Manager. The binary is not modified.
