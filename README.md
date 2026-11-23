@@ -9,12 +9,12 @@ Native Android application for sending PlayStation PKG files over a local networ
 - Validate PS4 CNT and PS5 FIH package signatures; file extension case does not determine validity.
 - Read PS4 `param.sfo` and PS5 `param.json` metadata where available: title, Title ID, Content ID, category and version.
 - Extract an embedded PNG package icon when present.
-- Queue cards show platform, title, version, Title ID, package size and served progress; files can be removed before sending.
+- Search by title, filename, Title ID or Content ID; filter BASE/UPDATE/DLC; queue cards show covers and progress, with remove and reorder controls.
 - Discover compatible local endpoints on Wi-Fi: RPI/receiver port 12800 and GoldHEN ports 9090, 9021 and 9020.
 - PS4 RPI request path on port 12800.
 - PS4 GoldHEN path: payload injection, callback listener, package metadata struct and BGFT manifest endpoint.
 - Local phone HTTP server on port 9898 supports GET, HEAD and byte-range requests.
-- Foreground data-sync service keeps the local file server alive when the Activity is backgrounded.
+- Foreground data-sync service keeps the local file server alive when the Activity is backgrounded; a Stop File Server control ends it explicitly.
 - Selected file URIs and console settings are persisted when Android grants access.
 
 ## Compatibility and honest status
