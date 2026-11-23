@@ -2,7 +2,7 @@
 
 Native Android application for sending PlayStation PKG files over a local network. The project follows the practical workflow of [Loopayeh/pkg-sender](https://github.com/Loopayeh/pkg-sender), with an Android-native interface, storage access and transfer lifecycle.
 
-## Current implementation — 0.9.2
+## Current implementation — 0.9.3
 
 - Native black-and-silver interface with XPD wolf mark.
 - Add individual PKG files or recursively scan a selected folder; .pkg extension matching is case-insensitive and the container signature is validated.
