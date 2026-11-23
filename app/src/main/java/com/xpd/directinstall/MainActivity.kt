@@ -226,7 +226,7 @@ class MainActivity : Activity() {
    val found=ConsoleDiscovery.scan(this){message->runOnUiThread{status.text=message}}
    runOnUiThread{
     when{
-     found.isEmpty()->status.text="No compatible receiver found. Confirm that Remote Package Installer or GoldHEN is running on the PS4."
+     found.isEmpty()->status.text="No PS4 Remote Package Installer was found on the local network."
      found.size==1->{ip.setText(found[0].address);port.setText(found[0].port.toString());status.text="Found ${found[0].service} at ${found[0].address}:${found[0].port}. Check the connection before sending."}
      else->{ip.setText(found[0].address);port.setText(found[0].port.toString());status.text="Found ${found.size} possible receivers. Selected ${found[0].address} (${found[0].service}); verify before sending."}
     }
@@ -244,7 +244,6 @@ class MainActivity : Activity() {
   if(rpi.contains("Remote Package Installer detected",true))return 12800
     return null
  }
- private fun probeTcp(host:String,p:Int):Boolean{return try{java.net.Socket().use{it.connect(java.net.InetSocketAddress(host,p),2500);true}}catch(_:Exception){false}}
  private fun probeHttp(host:String,p:Int,path:String,kind:String):String{
   var conn:HttpURLConnection?=null
   return try{
@@ -252,9 +251,7 @@ class MainActivity : Activity() {
    conn.requestMethod="GET";conn.connectTimeout=4000;conn.readTimeout=4000
    val code=conn.responseCode
    val body=(if(code in 200..299)conn.inputStream else conn.errorStream)?.bufferedReader()?.use{it.readText()}?:""
-   if(kind=="GoldHEN"&&body.contains("status")&&body.contains("ready"))
-    "GoldHEN status endpoint is ready on 9090. The payload installer is available; a real console test is still required."
-   else if(kind=="RPI"&&(body.contains("Unsupported method",true)&&body.contains("fail",true)))
+   if(kind=="RPI"&&(body.contains("Unsupported method",true)&&body.contains("fail",true)))
     "PS4 Remote Package Installer detected on port $p. "
    else "Port $p responded (HTTP $code), but $kind was not confirmed."
   }catch(e:Exception){"No $kind response on $p: "+(e.message?:"connection failed")}finally{conn?.disconnect()}
@@ -324,7 +321,6 @@ class MainActivity : Activity() {
      while(paused&&!transferCancelled)Thread.sleep(250)
      if(transferCancelled){message="Transfer stopped by user.";retryEntries.addAll(queueSnapshot.drop(index));break}
      runOnUiThread{status.text="Sending ${index+1}/${queueSnapshot.size}: ${entry.metadata?.displayTitle?:entry.name}"}
-     {
       var c:HttpURLConnection?=null
       val result=try{
        val fileUrl="http://$local:9898/pkg/${entry.id}"
@@ -344,7 +340,6 @@ class MainActivity : Activity() {
       finally{c?.disconnect()}
       if(!result.startsWith("RPI accepted:")){message=result;retryEntries.addAll(queueSnapshot.drop(index));break}
       message=result
-     }
     }
     if(message.isBlank())message="No package request was completed."
     if(message.startsWith("RPI accepted:"))message="RPI accepted the last submitted package. Confirm downloads and installation on the console. $message"
