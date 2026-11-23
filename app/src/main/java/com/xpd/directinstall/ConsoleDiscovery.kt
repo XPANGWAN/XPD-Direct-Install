@@ -34,22 +34,23 @@ object ConsoleDiscovery {
 
         val pool = Executors.newFixedThreadPool(40)
         try {
-            val tasks = ArrayList<java.util.concurrent.Future<ConsoleCandidate?>>(hostCount.toInt())
+            val tasks = ArrayList<Callable<ConsoleCandidate?>>(hostCount.toInt())
             for (host in 1 until hostCount.toInt()) {
                 val raw = network + host
                 val address = try {
                     InetAddress.getByAddress(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(raw).array()).hostAddress
                 } catch (_: Exception) { continue }
                 if (address == null || address == localAddress(dhcp.ipAddress)) continue
-                tasks += pool.submit(Callable { probe(address) })
+                tasks += Callable { probe(address) }
             }
             onProgress("Searching ${tasks.size} local addresses…")
             val found = ArrayList<ConsoleCandidate>()
-            for (future in tasks) {
+            val completed = pool.invokeAll(tasks, 8, TimeUnit.SECONDS)
+            for (future in completed) {
                 try {
-                    val candidate = future.get(1800, TimeUnit.MILLISECONDS)
+                    val candidate = if (future.isDone && !future.isCancelled) future.get() else null
                     if (candidate != null && found.none { it.address == candidate.address }) found += candidate
-                } catch (_: Exception) { future.cancel(true) }
+                } catch (_: Exception) { }
             }
             return found
         } finally {
