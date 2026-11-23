@@ -39,7 +39,7 @@ class MainActivity : Activity() {
   val brandText=LinearLayout(this).apply{orientation=1}
   brandText.addView(label("XPD",30f,Color.WHITE).apply{typeface=android.graphics.Typeface.create("sans-serif-black",android.graphics.Typeface.BOLD);letterSpacing=.10f})
   brandText.addView(label("DIRECT INSTALL",13f,silver).apply{letterSpacing=.22f})
-  brandText.addView(label("ANDROID PKG SENDER  •  v0.8.0",10f,muted).apply{letterSpacing=.08f;setPadding(1,5,0,0)})
+  brandText.addView(label("ANDROID PKG SENDER  •  v0.9.0",10f,muted).apply{letterSpacing=.08f;setPadding(1,5,0,0)})
   brand.addView(brandText,LinearLayout.LayoutParams(0,-2,1f))
   body.addView(brand,lp(-1,dp(82)).apply{bottomMargin=dp(22)})
   body.addView(sectionHeader("01  /  CONSOLE"))
@@ -257,11 +257,15 @@ class MainActivity : Activity() {
    }
    val textCol=LinearLayout(this).apply{orientation=1}
    textCol.addView(label(meta?.displayTitle?.takeIf{it.isNotBlank()}?:f.name,13f,silver).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END})
-   val subtitle=listOfNotNull(meta?.platform,meta?.titleId?.takeIf{it.isNotBlank()},meta?.version?.takeIf{it.isNotBlank()}).joinToString("  •  ")
+   val role=when{meta?.isDlc==true->"DLC";meta?.isUpdate==true->"UPDATE";meta?.platform=="PS4"->"BASE GAME";else->""}
+   val subtitle=listOfNotNull(meta?.platform,meta?.titleId?.takeIf{it.isNotBlank()},meta?.version?.takeIf{it.isNotBlank()},role.takeIf{it.isNotBlank()}).joinToString("  •  ")
    if(subtitle.isNotBlank())textCol.addView(label(subtitle,10f,muted).apply{setPadding(0,dp(4),0,0)})
    top.addView(textCol,LinearLayout.LayoutParams(0,-2,1f));row.addView(top)
    val n=served[f.id]?:0L;val pct=if(f.size>0)(n*100/f.size).coerceIn(0,100)else 0
-   row.addView(label("${f.name}  •  ${sizeText(f.size)}  •  sent ${pct}%",10f,muted).apply{setPadding(0,dp(7),0,0);maxLines=2})
+   row.addView(label("${f.name}  •  ${sizeText(f.size)}  •  served ${pct}%",10f,muted).apply{setPadding(0,dp(7),0,0);maxLines=2})
+   val progress=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply{max=100;this.progress=pct;progressTintList=android.content.res.ColorStateList.valueOf(silver);progressBackgroundTintList=android.content.res.ColorStateList.valueOf(Color.rgb(48,51,58))}
+   row.addView(progress,lp(-1,dp(5)).apply{topMargin=dp(8)})
+   row.addView(button("REMOVE"){if(!busy){files.removeAll{it.id==f.id};served.remove(f.id);refreshQueue();saveState()}},lp(dp(88),dp(32)).apply{topMargin=dp(8)})
    queue.addView(row,lp(-1,-2).apply{topMargin=dp(7)})
   }
   send.isEnabled=files.isNotEmpty()&&!busy;clear.isEnabled=!busy
