@@ -13,7 +13,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
-data class PkgEntry(val id: String, val uri: Uri, val name: String, val size: Long)
+data class PkgEntry(val id: String, val uri: Uri, val name: String, val size: Long, val metadata: PkgMetadata? = null)
 
 class PkgHttpServer(
     private val resolver: ContentResolver,
