@@ -10,6 +10,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
+import androidx.documentfile.provider.DocumentFile
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -59,6 +60,7 @@ class MainActivity : Activity() {
   clear=button("CLEAR"){if(!busy){files.clear();served.clear();refreshQueue();saveState()}}.apply{isEnabled=!busy};queueTop.addView(clear,lp(dp(82),dp(34)))
   packages.addView(queueTop)
   packages.addView(button("＋   ADD PKG FILES",true){chooseFiles()},lp(-1,dp(52)).apply{topMargin=dp(10)})
+  packages.addView(button("SCAN PKG FOLDER"){chooseFolder()},lp(-1,dp(46)).apply{topMargin=dp(8)})
   fileInfo=label("No packages selected",12f,muted).apply{setPadding(2,dp(14),2,dp(8))};packages.addView(fileInfo)
   queue=LinearLayout(this).apply{orientation=1};queue.addView(label("Choose one or more PKG files to build your queue.",11f,muted).apply{setPadding(2,dp(8),2,dp(8))});packages.addView(queue)
   body.addView(packages,lp(-1,-2).apply{bottomMargin=dp(22)})
@@ -115,6 +117,51 @@ class MainActivity : Activity() {
  private fun lp(w:Int,h:Int)=LinearLayout.LayoutParams(w,h)
  private fun field(h:String,n:Boolean)=EditText(this).apply{hint=h;setHintTextColor(muted);setTextColor(Color.WHITE);textSize=14f;setSingleLine(true);setPadding(14,13,14,13);setBackgroundColor(panel);inputType=if(n)android.text.InputType.TYPE_CLASS_NUMBER else android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS}
  private fun button(s:String,primary:Boolean=false,action:()->Unit)=Button(this).apply{text=s;setTextColor(if(primary)Color.BLACK else silver);setBackgroundTintList(android.content.res.ColorStateList.valueOf(if(primary)silver else panel));setOnClickListener{action()}}
+ private fun chooseFolder(){
+  if(busy)return
+  val intent=Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply{
+   addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+  }
+  startActivityForResult(intent,42)
+ }
+ private fun scanFolder(treeUri:Uri){
+  status.text="Scanning folder for PlayStation .pkg files…"
+  Thread{
+   val discovered=mutableListOf<PkgEntry>()
+   var inspected=0
+   fun walk(folder:DocumentFile,depth:Int){
+    if(depth>12||discovered.size>=2000)return
+    val children=try{folder.listFiles()}catch(_:Exception){emptyArray()}
+    for(child in children){
+     if(discovered.size>=2000)break
+     if(child.isDirectory){walk(child,depth+1)}
+     else{
+      val name=child.name?:continue
+      if(!name.lowercase(Locale.ROOT).endsWith(".pkg"))continue
+      inspected++
+      if(PkgMetadataReader.hasPkgMagic(contentResolver,child.uri)){
+       val meta=PkgMetadataReader.read(contentResolver,child.uri)
+       discovered.add(PkgEntry("",child.uri,name,packageSize(child.uri),meta))
+      }
+     }
+    }
+   }
+   try{
+    val root=DocumentFile.fromTreeUri(this,treeUri)
+    if(root!=null)walk(root,0)
+   }catch(_:Exception){}
+   runOnUiThread{
+    var added=0
+    discovered.forEach{entry->
+     if(files.none{it.uri==entry.uri}){
+      files.add(entry.copy(id=files.size.toString()));added++
+     }
+    }
+    refreshQueue();saveState()
+    status.text=if(added>0)"Folder scan complete: $added PKG file(s) added from $inspected candidate(s)." else "No new valid .pkg files found in this folder ($inspected candidates checked)."
+   }
+  }.start()
+ }
  private fun chooseFiles(){if(busy)return;val i=Intent(Intent.ACTION_OPEN_DOCUMENT).apply{addCategory(Intent.CATEGORY_OPENABLE);type="*/*";putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true)};startActivityForResult(i,41)}
  private fun validIp(s:String)=s.matches(Regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"))&&s.split(".").all{it.toIntOrNull()?.let { n -> n in 0..255 } == true}
  private fun discoverConsole(){
@@ -278,7 +325,17 @@ class MainActivity : Activity() {
  }
  private fun sizeText(n:Long):String{if(n<0)return "Size unknown";val mb=n/1048576.0;return if(mb>=1024)String.format(Locale.US,"%.2f GB",mb/1024)else String.format(Locale.US,"%.1f MB",mb)}
  @Deprecated("Legacy result callback")
- override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?){super.onActivityResult(requestCode,resultCode,data);if(requestCode!=41||resultCode!=RESULT_OK||data==null)return
+ override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?){
+  super.onActivityResult(requestCode,resultCode,data)
+  if(requestCode==42){
+   if(resultCode==RESULT_OK&&data?.data!=null){
+    val tree=data.data!!
+    try{contentResolver.takePersistableUriPermission(tree,data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION)}catch(_:SecurityException){}
+    scanFolder(tree)
+   }
+   return
+  }
+  if(requestCode!=41||resultCode!=RESULT_OK||data==null)return
   val uris=mutableListOf<Uri>();data.clipData?.let{for(i in 0 until it.itemCount)uris.add(it.getItemAt(i).uri)};if(uris.isEmpty())data.data?.let{uris.add(it)}
   var count=0;var rejected=0;uris.forEach{u->if(files.any{it.uri==u})return@forEach
    try{contentResolver.takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION)}catch(_:SecurityException){}
