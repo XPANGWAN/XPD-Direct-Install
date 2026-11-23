@@ -48,7 +48,8 @@ class MainActivity : Activity() {
   ip=field("192.168.1.XX",false).apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL}
   connection.addView(label("CONSOLE IP ADDRESS",10f,muted),lp(-1,20));connection.addView(ip,lp(-1,52).apply{bottomMargin=12})
   port=field("12800",true).apply{setText("12800")};connection.addView(label("RECEIVER PORT",10f,muted),lp(-1,20));connection.addView(port,lp(-1,52))
-  connection.addView(button("FIND CONSOLE ON WI-FI"){discoverConsole()},lp(-1,48).apply{topMargin=12})\n  check=button("CHECK CONNECTION"){checkReceiver()};connection.addView(check,lp(-1,50).apply{topMargin=8})
+  connection.addView(button("FIND CONSOLE ON WI-FI"){discoverConsole()},lp(-1,48).apply{topMargin=12})
+  check=button("CHECK CONNECTION"){checkReceiver()};connection.addView(check,lp(-1,50).apply{topMargin=8})
   connection.addView(label("RPI: 12800  /  GoldHEN status: 9090 (detection only)",10f,muted).apply{setPadding(2,12,2,0)})
   body.addView(connection,lp(-1,-2).apply{bottomMargin=dp(22)})
   body.addView(sectionHeader("02  /  YOUR PACKAGES"))
