@@ -24,7 +24,7 @@ class PkgHttpServer(
     private val onServerError: (String) -> Unit
 ) {
     private val running = AtomicBoolean(false)
-    private val workers: ExecutorService = Executors.newCachedThreadPool()
+    private val workers: ExecutorService = Executors.newFixedThreadPool(8)
     @Volatile private var server: ServerSocket? = null
 
     fun start(): Boolean {
