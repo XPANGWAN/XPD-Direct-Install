@@ -31,7 +31,7 @@ class MainActivity : Activity() {
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();restoreState()}
  private fun buildUi(){
   val root=LinearLayout(this).apply{orientation=1;setPadding(20,22,20,20);setBackgroundColor(bg)}
-  val scroll=ScrollView(this).apply{clipToPadding=false;isFillViewport=true;fillViewport=true}
+  val scroll=ScrollView(this).apply{clipToPadding=false;isFillViewport=true}
   val body=LinearLayout(this).apply{orientation=1}
   val brand=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
   val mark=ImageView(this).apply{setImageResource(R.drawable.xpd_wolf_mark);scaleType=ImageView.ScaleType.FIT_CENTER}
@@ -188,7 +188,7 @@ class MainActivity : Activity() {
  private fun displayPkgName(name:String)=if(name.lowercase(Locale.ROOT).endsWith(".pkg"))name else name+".pkg"
  private fun isValidPkg(u:Uri):Boolean {
   return try {
-   val size=packageSize(u);if(size in 0 until 256)return false
+   val size=packageSize(u);if(size in 0L until 256L)return false
    contentResolver.openInputStream(u)?.use { stream ->
     val magic=ByteArray(4);var offset=0
     while(offset<4){val n=stream.read(magic,offset,4-offset);if(n<=0)return false;offset+=n}
