@@ -90,7 +90,7 @@ class MainActivity : Activity() {
      if(isValidPkg(u)){
       val size=packageSize(u)
       val metadata=PkgMetadataReader.read(contentResolver,u)
-      files.add(PkgEntry(files.size.toString(),u,displayPkgName(name),size,metadata))
+      files.add(PkgEntry(java.util.UUID.randomUUID().toString(),u,displayPkgName(name),size,metadata))
      }
     }catch(_:Exception){}
    }
@@ -154,7 +154,7 @@ class MainActivity : Activity() {
     var added=0
     discovered.forEach{entry->
      if(files.none{it.uri==entry.uri}){
-      files.add(entry.copy(id=files.size.toString()));added++
+      files.add(entry.copy(id=java.util.UUID.randomUUID().toString()));added++
      }
     }
     refreshQueue();saveState()
@@ -342,7 +342,7 @@ class MainActivity : Activity() {
    if(!isValidPkg(u)){rejected++;return@forEach}
    val name=query(u,OpenableColumns.DISPLAY_NAME)?:"package.pkg"
    val metadata=PkgMetadataReader.read(contentResolver,u)
-   files.add(PkgEntry(files.size.toString(),u,displayPkgName(name),packageSize(u),metadata));count++}
+   files.add(PkgEntry(java.util.UUID.randomUUID().toString(),u,displayPkgName(name),packageSize(u),metadata));count++}
   status.text=when{count>0&&rejected>0->"$count valid PKG file(s) added; $rejected invalid file(s) skipped.";count>0->"$count valid PKG file(s) added.";rejected>0->"No valid PlayStation PKG found. Check the selected file.";else->"No new PKG files selected."};refreshQueue();saveState()
  }
  private fun displayPkgName(name:String)=if(name.lowercase(Locale.ROOT).endsWith(".pkg"))name else name+".pkg"
