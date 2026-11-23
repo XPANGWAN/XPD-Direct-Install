@@ -192,7 +192,7 @@ class MainActivity : Activity() {
  }
  private fun checkReceiver(){
   val host=ip.text.toString().trim();val p=port.text.toString().toIntOrNull()
-  if(!validIp(host)){status.text="Enter a valid PS4 IPv4 address.";return}
+  if(!validIp(host)){status.text="Enter a valid PlayStation IPv4 address.";return}
   if(p==null||p !in 1..65535){status.text="Enter a valid port.";return}
   check.isEnabled=false;status.text="Checking PS4 receiver…"
   Thread{
@@ -213,7 +213,7 @@ class MainActivity : Activity() {
    val code=conn.responseCode
    val body=(if(code in 200..299)conn.inputStream else conn.errorStream)?.bufferedReader()?.use{it.readText()}?:""
    if(kind=="GoldHEN"&&body.contains("status")&&body.contains("ready"))
-    "GoldHEN detected on 9090. Online; this build does not yet include the GoldHEN installer payload."
+    "GoldHEN status endpoint is ready on 9090. The payload installer is available; a real console test is still required."
    else if(kind=="RPI"&&(body.contains("Unsupported method",true)&&body.contains("fail",true)))
     "RPI detected on port $p."
    else "Port $p responded (HTTP $code), but $kind was not confirmed."
