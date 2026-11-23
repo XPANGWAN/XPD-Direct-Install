@@ -103,6 +103,8 @@ class MainActivity : Activity() {
   if(busy)return;if(files.isEmpty()){status.text="Add at least one .pkg file.";return}
   val host=ip.text.toString().trim();val p=port.text.toString().toIntOrNull()
   if(!validIp(host)){status.text="Enter a valid PS4 IPv4 address.";return};if(p==null||p !in 1..65535){status.text="Enter a valid receiver port.";return}
+  if(p==9090){status.text="GoldHEN uses payload injection, not the RPI /api/install request. This build detects GoldHEN but does not yet send PKG through it.";return}
+  if(p!=12800){status.text="RPI installation is supported on port 12800 in this build.";return}
   val local=localIp()?:run{status.text="Connect phone and PS4 to the same Wi-Fi network.";return}
   val s=PkgHttpServer(contentResolver,8080,files.toList(),onBytes={id,n->served[id]=n;runOnUiThread{refreshQueue()}},onServerError={m->runOnUiThread{status.text=m}})
   if(!s.start()){status.text="Could not start local server on port 8080.";return}
