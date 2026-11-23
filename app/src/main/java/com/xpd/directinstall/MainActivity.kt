@@ -163,8 +163,8 @@ class MainActivity : Activity() {
      if(child.isDirectory){walk(child,depth+1)}
      else{
       val name=child.name?:continue
-      if(!name.lowercase(Locale.ROOT).endsWith(".pkg"))continue
       inspected++
+      if(!name.lowercase(Locale.ROOT).endsWith(".pkg"))continue
       if(PkgMetadataReader.hasPkgMagic(contentResolver,child.uri)){
        val meta=PkgMetadataReader.read(contentResolver,child.uri)
        discovered.add(PkgEntry("",child.uri,name,packageSize(child.uri),meta))
