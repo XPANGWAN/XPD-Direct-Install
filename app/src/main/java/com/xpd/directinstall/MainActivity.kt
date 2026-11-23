@@ -30,7 +30,7 @@ class MainActivity : Activity() {
  private var server:PkgHttpServer?=null; private lateinit var ip:EditText; private lateinit var port:EditText
  private lateinit var status:TextView; private lateinit var fileInfo:TextView; private lateinit var queue:LinearLayout; private lateinit var queueSearch:EditText
  private lateinit var send:Button; private lateinit var check:Button; private lateinit var clear:Button; private lateinit var stopServerButton:Button; private lateinit var pauseButton:Button; private lateinit var retryButton:Button; private lateinit var serverInfo:TextView
- @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; @Volatile private var paused=false; private val transferLock=java.lang.Object(); private val retryEntries=mutableListOf<PkgEntry>(); private var filterRole="ALL"
+ @Volatile private var busy=false; @Volatile private var scanning=false; @Volatile private var transferCancelled=false; @Volatile private var paused=false; private val retryEntries=mutableListOf<PkgEntry>(); private var filterRole="ALL"
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=bg;window.navigationBarColor=bg;window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv();buildUi();server=TransferRuntime.server;stopServerButton.isEnabled=server!=null;if(server!=null)serverInfo.text="Local file server active on port 9898.";restoreState()}
  private fun buildUi(){
   val root=LinearLayout(this).apply{orientation=1;setPadding(20,22,20,20);setBackgroundColor(bg)}
@@ -229,7 +229,6 @@ class MainActivity : Activity() {
   paused=!paused
   pauseButton.text=if(paused)"RESUME TRANSFER" else "PAUSE TRANSFER"
   status.text=if(paused)"Paused after the current package request. Resume to continue." else "Transfer resumed."
-  synchronized(transferLock){transferLock.notifyAll()}
  }
  private fun sendFiles(retryOnly:Boolean=false){
   if(busy)return
@@ -275,7 +274,7 @@ class MainActivity : Activity() {
    var message=""
    try{
     for((index,entry) in queueSnapshot.withIndex()){
-     synchronized(transferLock){while(paused&&!transferCancelled){transferLock.wait(500)}}
+     while(paused&&!transferCancelled)Thread.sleep(250)
      if(transferCancelled){message="Transfer stopped by user.";retryEntries.addAll(queueSnapshot.drop(index));break}
      runOnUiThread{status.text="Sending ${index+1}/${queueSnapshot.size}: ${entry.metadata?.displayTitle?:entry.name}"}
      if(goldHen){
@@ -314,7 +313,7 @@ class MainActivity : Activity() {
   }.start()
  }
  private fun stopTransferServer(){
-  transferCancelled=true;paused=false;synchronized(transferLock){transferLock.notifyAll()}
+  transferCancelled=true;paused=false
   try{startService(Intent(this,TransferForegroundService::class.java).setAction(TransferForegroundService.ACTION_STOP))}catch(_:Exception){
    TransferRuntime.server?.stop();TransferRuntime.server=null
   }
