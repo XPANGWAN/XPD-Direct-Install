@@ -84,7 +84,7 @@ class MainActivity : Activity() {
   serverInfo=label("Local phone server  •  Port 9898",10f,muted).apply{setPadding(2,dp(12),2,2)};transfer.addView(serverInfo)
   stopServerButton=button("STOP FILE SERVER"){stopTransferServer()}.apply{isEnabled=false};transfer.addView(stopServerButton,lp(-1,dp(42)).apply{topMargin=dp(8)})
   body.addView(transfer,lp(-1,-2).apply{bottomMargin=dp(18)})
-  body.addView(label("Both devices must be connected to the same Wi-Fi network. Keep XPD open while the PS4 downloads the selected files. A successful request means accepted by the receiver, not confirmed installation.",10f,muted).apply{setPadding(4,4,4,22);gravity=Gravity.CENTER})
+  body.addView(label("Both devices must be reachable on the same local network. You may switch apps while the XPD transfer notification is active; use STOP FILE SERVER when downloads are finished. A successful request means accepted by the receiver, not confirmed installation.",10f,muted).apply{setPadding(4,4,4,22);gravity=Gravity.CENTER})
   scroll.addView(body);root.addView(scroll);setContentView(root)
  }
  private fun prefs()=getSharedPreferences("xpd_direct_install",MODE_PRIVATE)
