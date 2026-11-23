@@ -91,7 +91,7 @@ class MainActivity : Activity() {
   runOnUiThread{status.text=msg;busy=false;send.isEnabled=files.isNotEmpty()}
   }.start()
  }
- private fun localIp():String?=try{val all=NetworkInterface.getNetworkInterfaces()?:return null;for(n in Collections.list(all))if(n.isUp&&!n.isLoopback)for(a in Collections.list(n.inetAddresses))if(a is Inet4Address&&a.isSiteLocalAddress&&!a.isLoopbackAddress)return a.hostAddress;null}catch(_:Exception){null}
+ private fun localIp():String? {\n  return try { val all=NetworkInterface.getNetworkInterfaces() ?: return null; for(n in Collections.list(all)) if(n.isUp && !n.isLoopback) for(a in Collections.list(n.inetAddresses)) if(a is Inet4Address && a.isSiteLocalAddress && !a.isLoopbackAddress) return a.hostAddress; null } catch(_:Exception) { null }\n }
  private fun refreshQueue(){
   fileInfo.text=if(files.isEmpty())"No packages selected" else "${files.size} package(s) selected"
   queue.text=if(files.isEmpty())"Your selected packages will appear here." else files.mapIndexed{i,f->val n=served[f.id]?:0L;val pct=if(f.size>0)(n*100/f.size).coerceIn(0,100)else 0;"${i+1}. ${f.name}\n   ${sizeText(f.size)} • served: $pct%"}.joinToString("\n\n")
