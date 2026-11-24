@@ -227,7 +227,7 @@ class MainActivity : Activity() {
    val found=ConsoleDiscovery.scan(this){message->runOnUiThread{status.text=message}}
    runOnUiThread{
     when{
-     found.isEmpty()->status.text="No PS4 Remote Package Installer was found on the local network."
+     found.isEmpty()->status.text="No receiver answered on ports 9090 or 12800. Enter the PS4 IP manually and tap TEST; make sure GoldHEN BinLoader or Remote Package Installer is running."
      found.size==1->{ip.setText(found[0].address);port.setText(found[0].port.toString());status.text="Found ${found[0].service} at ${found[0].address}:${found[0].port}. Check the connection before sending."}
      else->{ip.setText(found[0].address);port.setText(found[0].port.toString());status.text="Found ${found.size} possible receivers. Selected ${found[0].address} (${found[0].service}); verify before sending."}
     }
@@ -292,12 +292,19 @@ class MainActivity : Activity() {
   val local=localIp(host)?:run{status.text="Could not find a phone IPv4 address on the same LAN as the console.";return}
   val activityRef=WeakReference(this)
   val queueSnapshot=queueToSend
+  queueSnapshot.forEach{served.remove(it.id)}
   val servedCounts=served
+  val acceptedIds=ConcurrentHashMap.newKeySet<String>()
+  val submissionsComplete=java.util.concurrent.atomic.AtomicBoolean(false)
   val lastUiRefresh=AtomicLong(0L)
   val cleanupTriggered=AtomicLong(0L)
+  fun allAcceptedFilesServed():Boolean = acceptedIds.isNotEmpty() && acceptedIds.all{id->
+   val entry=queueSnapshot.firstOrNull{it.id==id}
+   entry!=null && entry.size>0L && (servedCounts[id]?:0L)>=entry.size
+  }
   val s=PkgHttpServer(contentResolver,9898,queueSnapshot,publicHost=local,onBytes={id,n->
    servedCounts.compute(id){_,old->((old?:0L)+n).let{v->val size=queueSnapshot.firstOrNull{it.id==id}?.size?:-1L;if(size>0)v.coerceAtMost(size)else v}}
-   if(queueSnapshot.all{entry->entry.size>0L&&(servedCounts[entry.id]?:0L)>=entry.size}&&cleanupTriggered.compareAndSet(0L,1L)){
+   if(submissionsComplete.get() && allAcceptedFilesServed() && cleanupTriggered.compareAndSet(0L,1L)){
     activityRef.get()?.runOnUiThread{activityRef.get()?.stopLocalFileServer()}
    }
    val now=android.os.SystemClock.uptimeMillis()
@@ -340,23 +347,35 @@ class MainActivity : Activity() {
        val code=c.responseCode
        val reply=(if(code in 200..299)c.inputStream else c.errorStream)?.bufferedReader()?.use{it.readText()}?:""
        val accepted=try{val response=JSONObject(reply);response.optBoolean("success",false)||response.optString("status").equals("success",true)}catch(_:Exception){false}
-       if(code in 200..299&&accepted)"RPI accepted: ${entry.name}" else "RPI rejected ${entry.name} (HTTP $code): $reply"
+       if(code in 200..299&&accepted){acceptedIds.add(entry.id);"RPI accepted: ${entry.name}"} else "RPI rejected ${entry.name} (HTTP $code): $reply"
       }catch(e:Exception){"RPI request failed for ${entry.name}: ${e.message?: "network error"}"}
       finally{c?.disconnect()}
       if(!result.startsWith("RPI accepted:")){message=result;retryEntries.addAll(queueSnapshot.drop(index));break}
       message=result
     }
     if(message.isBlank())message="No package request was completed."
-    if(message.startsWith("RPI accepted:"))message="RPI accepted the last submitted package. Confirm downloads and installation on the console. $message"
+    if(message.startsWith("RPI accepted:"))message="RPI accepted all submitted package tasks. The PS4 will download them; installation status appears on the console. $message"
    }catch(e:Exception){message="Transfer stopped: ${e.message?: "unexpected error"}"}
+   submissionsComplete.set(true)
+   val noAcceptedTasks=acceptedIds.isEmpty()
+   val acceptedAlreadyServed=allAcceptedFilesServed()
    runOnUiThread{
-    status.text=message
+    if(noAcceptedTasks){
+     stopTransferServer()
+     status.text=message
+    }else if(acceptedAlreadyServed){
+     stopLocalFileServer()
+     status.text=message
+    }else{
+     status.text=message
+    }
     busy=false;paused=false;pauseButton.isEnabled=false;pauseButton.visibility=View.GONE
     refreshQueue()
    }
   }.start()
  }
  private fun beginGoldHenTransfer(queueToSend:List<PkgEntry>,host:String){
+  queueToSend.forEach{served.remove(it.id)}
   val local=localIp(host)?:run{status.text="Could not find the phone IPv4 address on the same Wi-Fi network.";return}
   val activityRef=WeakReference(this)
   val queueSnapshot=queueToSend.toList()
