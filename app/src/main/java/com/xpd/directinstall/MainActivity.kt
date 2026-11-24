@@ -54,7 +54,7 @@ class MainActivity : Activity() {
   toolbar.addView(menu,lp(dp(42),dp(42)))
   root.addView(toolbar,lp(-1,dp(52)).apply{bottomMargin=dp(14)})
 
-  val scroll=ScrollView(this).apply{clipToPadding=false;fillViewport=false;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS}
+  val scroll=ScrollView(this).apply{clipToPadding=false;isFillViewport=false;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS}
   val content=LinearLayout(this).apply{orientation=1}
   val connection=card().apply{setPadding(dp(16),dp(16),dp(16),dp(16))}
   val connectionHead=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
