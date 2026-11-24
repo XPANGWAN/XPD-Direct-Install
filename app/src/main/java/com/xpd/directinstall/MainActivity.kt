@@ -241,9 +241,11 @@ class MainActivity : Activity() {
   Thread{val detected=detectReceiverPort(host);runOnUiThread{if(detected!=null){port.setText(detected.toString());status.text="Receiver detected on port $detected."}else status.text="No GoldHEN BinLoader (9090) or RPI (12800) receiver was detected.";check.isEnabled=true}}.start()
  }
  private fun detectReceiverPort(host:String):Int?{
-  try{
-   Socket().use{socket->socket.connect(java.net.InetSocketAddress(host,9090),1800);return 9090}
-  }catch(_:Exception){}
+  for(candidate in intArrayOf(9090,9021,9020)){
+   try{
+    Socket().use{socket->socket.connect(java.net.InetSocketAddress(host,candidate),1800);return candidate}
+   }catch(_:Exception){}
+  }
   val rpi=probeHttp(host,12800,"/api","RPI")
   if(rpi.contains("Remote Package Installer detected",true))return 12800
   return null
