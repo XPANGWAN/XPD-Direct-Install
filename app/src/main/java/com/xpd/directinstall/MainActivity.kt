@@ -237,7 +237,7 @@ class MainActivity : Activity() {
  private fun checkReceiver(){
   val host=ip.text.toString().trim()
   if(!validIp(host)){status.text="Enter a valid PlayStation IPv4 address.";return}
-  check.isEnabled=false;status.text="Checking GoldHEN 9090 and Remote Package Installer 12800…"
+  check.isEnabled=false;status.text="Checking GoldHEN BinLoader (9090/9021/9020) and RPI (12800)…"
   Thread{val detected=detectReceiverPort(host);runOnUiThread{if(detected!=null){port.setText(detected.toString());status.text="Receiver detected on port $detected."}else status.text="No GoldHEN BinLoader (9090) or RPI (12800) receiver was detected.";check.isEnabled=true}}.start()
  }
  private fun detectReceiverPort(host:String):Int?{
@@ -276,19 +276,19 @@ class MainActivity : Activity() {
   val host=ip.text.toString().trim()
   if(!validIp(host)){status.text="Enter a valid PlayStation IPv4 address.";return}
   send.isEnabled=false
-  status.text="Checking GoldHEN 9090 and RPI 12800…"
+  status.text="Checking GoldHEN BinLoader (9090/9021/9020) and RPI 12800…"
   Thread{
    val detected=detectReceiverPort(host)
    runOnUiThread{
     send.isEnabled=true
-    if(detected==null){status.text="GoldHEN BinLoader (9090) or Remote Package Installer (12800) was not detected. Start GoldHEN and retry.";return@runOnUiThread}
+    if(detected==null){status.text="GoldHEN BinLoader (9090/9021/9020) or Remote Package Installer (12800) was not detected. Start the BinLoader in GoldHEN and retry.";return@runOnUiThread}
     port.setText(detected.toString())
     beginTransfer(queueToSend,host,detected)
    }
   }.start()
  }
  private fun beginTransfer(queueToSend:List<PkgEntry>,host:String,p:Int){
-  if(p==9090){beginGoldHenTransfer(queueToSend,host);return}
+  if(p==9090||p==9021||p==9020){beginGoldHenTransfer(queueToSend,host,p);return}
   val local=localIp(host)?:run{status.text="Could not find a phone IPv4 address on the same LAN as the console.";return}
   val activityRef=WeakReference(this)
   val queueSnapshot=queueToSend
@@ -374,7 +374,7 @@ class MainActivity : Activity() {
    }
   }.start()
  }
- private fun beginGoldHenTransfer(queueToSend:List<PkgEntry>,host:String){
+ private fun beginGoldHenTransfer(queueToSend:List<PkgEntry>,host:String,binLoaderPort:Int){
   queueToSend.forEach{served.remove(it.id)}
   val local=localIp(host)?:run{status.text="Could not find the phone IPv4 address on the same Wi-Fi network.";return}
   val activityRef=WeakReference(this)
@@ -427,7 +427,7 @@ class MainActivity : Activity() {
   )
   goldHenBridge=bridge
   Thread{
-   bridge.start(host)
+   bridge.start(host,binLoaderPort)
   }.apply{name="XPD-GoldHEN-Launch";isDaemon=true;start()}
  }
  private fun stopLocalFileServer(){
