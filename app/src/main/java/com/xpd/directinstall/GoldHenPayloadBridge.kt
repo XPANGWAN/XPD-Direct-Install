@@ -28,7 +28,7 @@ class GoldHenPayloadBridge(
     private val stopped = AtomicBoolean(false)
     @Volatile private var service: ServerSocket? = null
 
-    fun start(consoleIp: String): Boolean {
+    fun start(consoleIp: String, consolePort: Int = 9090): Boolean {
         return try {
             val bindAddress = InetAddress.getByName(phoneIp)
             val listener = ServerSocket(0, 8, bindAddress).apply {
@@ -54,10 +54,10 @@ class GoldHenPayloadBridge(
                 start()
             }
 
-            onStatus("Connecting to GoldHEN BinLoader on port 9090…")
+            onStatus("Connecting to GoldHEN BinLoader on port $consolePort…")
             Socket().use { socket ->
                 socket.tcpNoDelay = true
-                socket.connect(java.net.InetSocketAddress(consoleIp, 9090), 5000)
+                socket.connect(java.net.InetSocketAddress(consoleIp, consolePort), 5000)
                 socket.soTimeout = 10000
                 socket.getOutputStream().use { output ->
                     output.write(payload)
