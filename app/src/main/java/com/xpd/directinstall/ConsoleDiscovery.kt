@@ -61,12 +61,14 @@ object ConsoleDiscovery {
     } catch (_: Exception) { null }
 
     private fun probe(ip: String): ConsoleCandidate? {
-        try {
-            java.net.Socket().use { socket ->
-                socket.connect(java.net.InetSocketAddress(ip, 9090), 650)
-                return ConsoleCandidate(ip, "GoldHEN BinLoader", 9090)
-            }
-        } catch (_: Exception) { }
+        for (port in intArrayOf(9090, 9021, 9020)) {
+            try {
+                java.net.Socket().use { socket ->
+                    socket.connect(java.net.InetSocketAddress(ip, port), 650)
+                    return ConsoleCandidate(ip, "GoldHEN BinLoader", port)
+                }
+            } catch (_: Exception) { }
+        }
         val rpi = http(ip, 12800, "/api")
         if (rpi != null && (rpi.contains("Unsupported method", true) && rpi.contains("fail", true))) {
             return ConsoleCandidate(ip, "PS4 Remote Package Installer", 12800)
