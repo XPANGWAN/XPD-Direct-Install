@@ -11,8 +11,8 @@ android {
         applicationId = "com.xpd.directinstall"
         minSdk = 23
         targetSdk = 35
-        versionCode = 17
-        versionName = "0.9.7"
+        versionCode = 18
+        versionName = "0.9.8"
     }
 
     signingConfigs {
