@@ -175,7 +175,9 @@ class MainActivity : Activity() {
      if(isValidPkg(u)){
       val size=packageSize(u)
       val metadata=PkgMetadataReader.read(contentResolver,u)
-      files.add(PkgEntry(java.util.UUID.randomUUID().toString(),u,displayPkgName(name),size,metadata)).also{selectedIds.add(it.id)}
+      val entry=PkgEntry(java.util.UUID.randomUUID().toString(),u,displayPkgName(name),size,metadata)
+       files.add(entry)
+       selectedIds.add(entry.id)
      }
     }catch(_:Exception){}
    }
@@ -240,7 +242,8 @@ class MainActivity : Activity() {
     var added=0
     discovered.forEach{entry->
      if(files.none{it.uri==entry.uri}){
-      files.add(entry.copy(id=java.util.UUID.randomUUID().toString()).also{selectedIds.add(it.id)});added++
+      val addedEntry=entry.copy(id=java.util.UUID.randomUUID().toString())
+      files.add(addedEntry);selectedIds.add(addedEntry.id);added++
      }
     }
     scanning=false;refreshQueue();saveState()
