@@ -175,7 +175,7 @@ class MainActivity : Activity() {
      if(isValidPkg(u)){
       val size=packageSize(u)
       val metadata=PkgMetadataReader.read(contentResolver,u)
-      files.add(PkgEntry(java.util.UUID.randomUUID().toString(),u,displayPkgName(name),size,metadata))
+      files.add(PkgEntry(java.util.UUID.randomUUID().toString(),u,displayPkgName(name),size,metadata)).also{selectedIds.add(it.id)}
      }
     }catch(_:Exception){}
    }
@@ -240,7 +240,7 @@ class MainActivity : Activity() {
     var added=0
     discovered.forEach{entry->
      if(files.none{it.uri==entry.uri}){
-      files.add(entry.copy(id=java.util.UUID.randomUUID().toString()));added++
+      files.add(entry.copy(id=java.util.UUID.randomUUID().toString()).also{selectedIds.add(it.id)});added++
      }
     }
     scanning=false;refreshQueue();saveState()
@@ -302,7 +302,7 @@ class MainActivity : Activity() {
   if(busy)return
   if(TransferRuntime.server!=null){status.text="The previous file server is still active. Wait for the console to finish downloading.";return}
   if(scanning){status.text="Wait for the folder scan to finish.";return}
-  val queueToSend=if(retryOnly)retryEntries.toList() else files.toList()
+  val queueToSend=if(retryOnly)retryEntries.toList() else files.filter{selectedIds.contains(it.id)}
   if(queueToSend.isEmpty()){status.text="Add at least one .pkg file.";return}
   val host=ip.text.toString().trim()
   if(!validIp(host)){status.text="Enter a valid PlayStation IPv4 address.";return}
@@ -504,88 +504,76 @@ class MainActivity : Activity() {
  private fun refreshQueue(){
   val query=if(::queueSearch.isInitialized)queueSearch.text.toString().trim().lowercase(Locale.ROOT)else ""
   val visible=files.withIndex().filter{(_,entry)->query.isBlank()||listOf(entry.name,entry.metadata?.displayTitle.orEmpty(),entry.metadata?.titleId.orEmpty(),entry.metadata?.contentId.orEmpty()).any{it.lowercase(Locale.ROOT).contains(query)}}
-  fileInfo.text=when{
-   files.isEmpty()->"No packages added yet"
-   else->"${files.size} package(s) in library  •  ${retryEntries.size} to retry"
-  }
+  val selectedCount=files.count{selectedIds.contains(it.id)}
+  fileInfo.text="${files.size} added  •  $selectedCount selected"
   queue.removeAllViews();progressViews.clear();progressLabels.clear()
   if(files.isEmpty()){
-   val empty=LinearLayout(this).apply{orientation=1;gravity=Gravity.CENTER;setPadding(dp(12),dp(26),dp(12),dp(26))}
-   val emptyIcon=ImageView(this).apply{setImageResource(R.drawable.ic_folder);imageTintList=android.content.res.ColorStateList.valueOf(muted);contentDescription="Empty library"}
-   empty.addView(emptyIcon,lp(dp(38),dp(38)))
-   empty.addView(label("Your library is empty",14f,silver).apply{gravity=Gravity.CENTER;typeface=android.graphics.Typeface.DEFAULT_BOLD;setPadding(0,dp(9),0,dp(3))})
-   empty.addView(label("Add a PS4 .pkg file to get started.",10f,muted).apply{gravity=Gravity.CENTER})
+   val empty=LinearLayout(this).apply{orientation=1;gravity=Gravity.CENTER;setPadding(dp(12),dp(24),dp(12),dp(24))}
+   empty.addView(label("Your library is empty",13f,silver).apply{gravity=Gravity.CENTER;typeface=android.graphics.Typeface.DEFAULT_BOLD})
+   empty.addView(label("Add a PS4 .pkg file to get started.",10f,muted).apply{gravity=Gravity.CENTER;setPadding(0,dp(5),0,0)})
    queue.addView(empty,lp(-1,-2))
   }else if(visible.isEmpty()){
-   queue.addView(label("No packages match this search.",11f,muted).apply{setPadding(dp(2),dp(16),dp(2),dp(12))})
+   queue.addView(label("No packages match this search.",11f,muted).apply{setPadding(dp(2),dp(14),dp(2),dp(12))})
   }
   visible.forEach{(index,f)->
    val row=LinearLayout(this).apply{
-    orientation=1;setPadding(dp(11),dp(11),dp(11),dp(10))
-    background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(19,21,25));cornerRadius=dp(15).toFloat();setStroke(dp(1),Color.rgb(52,56,64))}
+    orientation=0;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(9),dp(10),dp(8),dp(10))
+    background=android.graphics.drawable.GradientDrawable().apply{
+     setColor(Color.rgb(18,19,23));cornerRadius=dp(15).toFloat()
+     setStroke(dp(1),if(selectedIds.contains(f.id))Color.rgb(104,109,120)else Color.rgb(49,52,60))
+    }
    }
-   val top=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
    val meta=f.metadata
    var hasCover=false
    if(meta?.iconPng!=null){
     try{
      val bitmap=android.graphics.BitmapFactory.decodeByteArray(meta.iconPng,0,meta.iconPng.size)
      if(bitmap!=null){
-      val cover=ImageView(this@MainActivity).apply{setImageBitmap(bitmap);scaleType=ImageView.ScaleType.CENTER_CROP;background=android.graphics.drawable.GradientDrawable().apply{cornerRadius=dp(10).toFloat()};clipToOutline=true;contentDescription="Package artwork"}
-      top.addView(cover,lp(dp(62),dp(62)).apply{rightMargin=dp(11)});hasCover=true
+      val cover=ImageView(this).apply{setImageBitmap(bitmap);scaleType=ImageView.ScaleType.CENTER_CROP;background=android.graphics.drawable.GradientDrawable().apply{cornerRadius=dp(9).toFloat()};clipToOutline=true;contentDescription="Package artwork"}
+      row.addView(cover,lp(dp(66),dp(66)).apply{rightMargin=dp(10)});hasCover=true
      }
     }catch(_:Exception){}
    }
    if(!hasCover){
     val cover=FrameLayout(this).apply{
-     background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(35,38,44));cornerRadius=dp(10).toFloat()}
-     val iv=ImageView(this@MainActivity).apply{setImageResource(R.drawable.ic_xpd_mark);imageTintList=android.content.res.ColorStateList.valueOf(silver);scaleType=ImageView.ScaleType.FIT_CENTER}
+     background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(35,38,44));cornerRadius=dp(9).toFloat()}
+     val iv=ImageView(this@MainActivity).apply{setImageResource(R.drawable.ic_xpd_mark);imageTintList=android.content.res.ColorStateList.valueOf(silver)}
      addView(iv,FrameLayout.LayoutParams(dp(34),dp(34),Gravity.CENTER))
     }
-    top.addView(cover,lp(dp(62),dp(62)).apply{rightMargin=dp(11)})
+    row.addView(cover,lp(dp(66),dp(66)).apply{rightMargin=dp(10)})
    }
    val textCol=LinearLayout(this).apply{orientation=1}
    val name=meta?.displayTitle?.takeIf{it.isNotBlank()}?:f.name
    textCol.addView(label(name,14f,Color.WHITE).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;typeface=android.graphics.Typeface.create("sans-serif-medium",1)})
-   val titleId=meta?.titleId?.takeIf{it.isNotBlank()}?:meta?.contentId?.takeIf{it.isNotBlank()}?:"PS4 package"
-   textCol.addView(label(titleId,10f,muted).apply{setPadding(0,dp(4),0,0);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
+   textCol.addView(label(meta?.titleId?.takeIf{it.isNotBlank()}?:meta?.contentId?.takeIf{it.isNotBlank()}?:"PS4 package",10f,muted).apply{setPadding(0,dp(4),0,0);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
    textCol.addView(label("${sizeText(f.size)}  •  ${meta?.version?.takeIf{it.isNotBlank()}?: "PKG"}",10f,muted).apply{setPadding(0,dp(3),0,0);maxLines=1})
-   top.addView(textCol,LinearLayout.LayoutParams(0,-2,1f))
-   val options=ImageButton(this).apply{
-    setImageResource(R.drawable.ic_more);imageTintList=android.content.res.ColorStateList.valueOf(silver);setBackgroundColor(Color.TRANSPARENT);contentDescription="Package options"
-    setOnClickListener{
-     val popup=PopupMenu(this@MainActivity,this)
-     popup.menu.add("Move up").isEnabled=!busy&&index>0
-     popup.menu.add("Move down").isEnabled=!busy&&index<files.lastIndex
-     popup.menu.add("Remove package").isEnabled=!busy
-     popup.setOnMenuItemClickListener{item->when(item.title.toString()){
-      "Move up"->{if(!busy&&index>0){Collections.swap(files,index,index-1);refreshQueue();saveState()}}
-      "Move down"->{if(!busy&&index<files.lastIndex){Collections.swap(files,index,index+1);refreshQueue();saveState()}}
-      "Remove package"->{if(!busy){files.removeAll{it.id==f.id};retryEntries.removeAll{it.id==f.id};served.remove(f.id);refreshQueue();saveState()}}
-     };true}
-     popup.show()
-    }
+   row.addView(textCol,LinearLayout.LayoutParams(0,-2,1f))
+   val selected=CheckBox(this).apply{
+    buttonTintList=android.content.res.ColorStateList.valueOf(silver)
+    isChecked=selectedIds.contains(f.id);contentDescription="Select ${f.name}"
+    setOnCheckedChangeListener{_,checked->if(checked)selectedIds.add(f.id)else selectedIds.remove(f.id);refreshQueue()}
    }
-   top.addView(options,lp(dp(34),dp(38)))
-   row.addView(top)
+   row.addView(selected,lp(dp(42),dp(48)))
+   row.setOnClickListener{if(selectedIds.contains(f.id))selectedIds.remove(f.id)else selectedIds.add(f.id);refreshQueue()}
+   val wrapper=LinearLayout(this).apply{orientation=1}
+   wrapper.addView(row,lp(-1,-2))
    val n=served[f.id]?:0L
    val pct=if(f.size>0)(n*100/f.size).coerceIn(0L,100L).toInt()else 0
-   val progressLabel=label(if(n>0)"${sizeText(f.size)}  •  ${pct}% transferred" else "READY  •  ${sizeText(f.size)}",9f,muted).apply{setPadding(dp(2),dp(9),dp(2),0);maxLines=1}
-   row.addView(progressLabel);progressLabels[f.id]=progressLabel
+   val progressLabel=label(if(n>0)"${sizeText(f.size)}  •  ${pct}% transferred" else "READY  •  ${sizeText(f.size)}",9f,muted).apply{setPadding(dp(3),dp(5),dp(2),0);maxLines=1}
+   wrapper.addView(progressLabel);progressLabels[f.id]=progressLabel
    val progress=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply{
     max=100;this.progress=pct;progressTintList=android.content.res.ColorStateList.valueOf(silver);progressBackgroundTintList=android.content.res.ColorStateList.valueOf(Color.rgb(48,51,58));visibility=if(n>0)View.VISIBLE else View.GONE
    }
-   row.addView(progress,lp(-1,dp(4)).apply{topMargin=dp(6)});progressViews[f.id]=progress
-   queue.addView(row,lp(-1,-2).apply{topMargin=dp(8)})
+   wrapper.addView(progress,lp(-1,dp(3)).apply{topMargin=dp(4)});progressViews[f.id]=progress
+   queue.addView(wrapper,lp(-1,-2).apply{topMargin=dp(8)})
   }
   send.text=when{
    retryEntries.isNotEmpty()->"RETRY FAILED (${retryEntries.size})"
-   files.isNotEmpty()->"SEND QUEUE (${files.size})"
-   else->"SEND QUEUE"
+   selectedCount>0->"SEND QUEUE ($selectedCount)"
+   else->"SELECT PACKAGES"
   }
   send.setCompoundDrawablesWithIntrinsicBounds(if(retryEntries.isNotEmpty())R.drawable.ic_retry else R.drawable.ic_send,0,0,0)
-  send.isEnabled=files.isNotEmpty()&&!busy&&TransferRuntime.server==null
-  clear.isEnabled=!busy
+  send.isEnabled=(retryEntries.isNotEmpty()||selectedCount>0)&&!busy&&TransferRuntime.server==null
  }
  private fun updatePackageProgress(id:String){
   val entry=files.firstOrNull{it.id==id}?:return
@@ -615,7 +603,7 @@ class MainActivity : Activity() {
    if(!isValidPkg(u)){rejected++;return@forEach}
    val name=query(u,OpenableColumns.DISPLAY_NAME)?:"package.pkg"
    val metadata=PkgMetadataReader.read(contentResolver,u)
-   files.add(PkgEntry(java.util.UUID.randomUUID().toString(),u,displayPkgName(name),packageSize(u),metadata));count++}
+   files.add(PkgEntry(java.util.UUID.randomUUID().toString(),u,displayPkgName(name),packageSize(u),metadata).also{selectedIds.add(it.id)});count++}
   status.text=when{count>0&&rejected>0->"$count valid PKG file(s) added; $rejected invalid file(s) skipped.";count>0->"$count valid PKG file(s) added.";rejected>0->"No valid PlayStation PKG found. Check the selected file.";else->"No new PKG files selected."};refreshQueue();saveState()
  }
  private fun displayPkgName(name:String)=if(name.lowercase(Locale.ROOT).endsWith(".pkg"))name else name+".pkg"
