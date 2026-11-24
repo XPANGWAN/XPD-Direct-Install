@@ -468,82 +468,84 @@ class MainActivity : Activity() {
   val query=if(::queueSearch.isInitialized)queueSearch.text.toString().trim().lowercase(Locale.ROOT)else ""
   val visible=files.withIndex().filter{(_,entry)->query.isBlank()||listOf(entry.name,entry.metadata?.displayTitle.orEmpty(),entry.metadata?.titleId.orEmpty(),entry.metadata?.contentId.orEmpty()).any{it.lowercase(Locale.ROOT).contains(query)}}
   fileInfo.text=when{
-   files.isEmpty()->"No files selected"
-   else->"${files.size} selected"
+   files.isEmpty()->"No packages added yet"
+   else->"${files.size} package(s) in library  •  ${retryEntries.size} to retry"
   }
   queue.removeAllViews();progressViews.clear();progressLabels.clear()
   if(files.isEmpty()){
-   queue.addView(label("No packages yet. Tap ADD PKG FILES to begin.",11f,muted).apply{setPadding(2,dp(12),2,dp(8))})
+   val empty=LinearLayout(this).apply{orientation=1;gravity=Gravity.CENTER;setPadding(dp(12),dp(26),dp(12),dp(26))}
+   val emptyIcon=ImageView(this).apply{setImageResource(R.drawable.ic_folder);imageTintList=android.content.res.ColorStateList.valueOf(muted);contentDescription="Empty library"}
+   empty.addView(emptyIcon,lp(dp(38),dp(38)))
+   empty.addView(label("Your library is empty",14f,silver).apply{gravity=Gravity.CENTER;typeface=android.graphics.Typeface.DEFAULT_BOLD;setPadding(0,dp(9),0,dp(3))})
+   empty.addView(label("Add a PS4 .pkg file to get started.",10f,muted).apply{gravity=Gravity.CENTER})
+   queue.addView(empty,lp(-1,-2))
   }else if(visible.isEmpty()){
-   queue.addView(label("No files match this search.",11f,muted).apply{setPadding(2,dp(12),2,dp(8))})
+   queue.addView(label("No packages match this search.",11f,muted).apply{setPadding(dp(2),dp(16),dp(2),dp(12))})
   }
   visible.forEach{(index,f)->
-     val row=LinearLayout(this).apply{
-      orientation=1
-      setPadding(dp(10),dp(10),dp(10),dp(9))
-      background=android.graphics.drawable.GradientDrawable().apply{
-       setColor(Color.rgb(19,21,25));cornerRadius=dp(12).toFloat()
-       setStroke(1,Color.rgb(45,48,55))
-      }
+   val row=LinearLayout(this).apply{
+    orientation=1;setPadding(dp(11),dp(11),dp(11),dp(10))
+    background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(19,21,25));cornerRadius=dp(15).toFloat();setStroke(dp(1),Color.rgb(52,56,64))}
+   }
+   val top=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
+   val meta=f.metadata
+   var hasCover=false
+   if(meta?.iconPng!=null){
+    try{
+     val bitmap=android.graphics.BitmapFactory.decodeByteArray(meta.iconPng,0,meta.iconPng.size)
+     if(bitmap!=null){
+      val cover=ImageView(this@MainActivity).apply{setImageBitmap(bitmap);scaleType=ImageView.ScaleType.CENTER_CROP;background=android.graphics.drawable.GradientDrawable().apply{cornerRadius=dp(10).toFloat()};clipToOutline=true;contentDescription="Package artwork"}
+      top.addView(cover,lp(dp(62),dp(62)).apply{rightMargin=dp(11)});hasCover=true
      }
-     val meta=f.metadata
-     val top=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
-     if(meta?.iconPng!=null){
-      try{
-       val bitmap=android.graphics.BitmapFactory.decodeByteArray(meta.iconPng,0,meta.iconPng.size)
-       if(bitmap!=null){
-        val cover=ImageView(this@MainActivity).apply{setImageBitmap(bitmap);scaleType=ImageView.ScaleType.CENTER_CROP}
-        top.addView(cover,lp(dp(44),dp(44)).apply{rightMargin=dp(10)})
-       }
-      }catch(_:Exception){}
-     }
-     val textCol=LinearLayout(this).apply{orientation=1}
-     textCol.addView(label(meta?.displayTitle?.takeIf{it.isNotBlank()}?:f.name,13f,silver).apply{
-      maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END
-      typeface=android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL)
-     })
-     val details=listOfNotNull(meta?.platform,meta?.titleId?.takeIf{it.isNotBlank()},meta?.version?.takeIf{it.isNotBlank()}).joinToString("  |  ")
-     textCol.addView(label(details,9f,muted).apply{
-      setPadding(0,dp(4),0,0);maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END
-     })
-     top.addView(textCol,LinearLayout.LayoutParams(0,-2,1f))
-     row.addView(top)
-
-     val n=served[f.id]?:0L
-     val pct=if(f.size>0)(n*100/f.size).coerceIn(0L,100L).toInt()else 0
-     val progressLabel=label(
-      if(n>0)"${sizeText(f.size)}  |  ${pct}% served" else sizeText(f.size),
-      9f,muted
-     ).apply{setPadding(2,dp(7),2,0);maxLines=1}
-     row.addView(progressLabel);progressLabels[f.id]=progressLabel
-     val progress=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply{
-      max=100;this.progress=pct
-      progressTintList=android.content.res.ColorStateList.valueOf(silver)
-      progressBackgroundTintList=android.content.res.ColorStateList.valueOf(Color.rgb(48,51,58))
-      visibility=if(n>0)View.VISIBLE else View.GONE
-     }
-     row.addView(progress,lp(-1,dp(4)).apply{topMargin=dp(6)})
-     progressViews[f.id]=progress
-
-     val options=button("FILE OPTIONS"){ 
-      val popup=PopupMenu(this@MainActivity,row.getChildAt(row.childCount-1))
-      popup.menu.add(0,1,0,"Move up").isEnabled=!busy&&index>0
-      popup.menu.add(0,2,1,"Move down").isEnabled=!busy&&index<files.lastIndex
-      popup.menu.add(0,3,2,"Remove file").isEnabled=!busy
-      popup.setOnMenuItemClickListener{item->
-       when(item.itemId){
-        1->{if(!busy&&index>0){Collections.swap(files,index,index-1);refreshQueue();saveState()}}
-        2->{if(!busy&&index<files.lastIndex){Collections.swap(files,index,index+1);refreshQueue();saveState()}}
-        3->{if(!busy){files.removeAll{it.id==f.id};retryEntries.removeAll{it.id==f.id};served.remove(f.id);refreshQueue();saveState()}}
-       }
-       true
-      }
-      popup.show()
-     }.apply{textSize=10f;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_more,0,0,0);compoundDrawablePadding=dp(4)}
-     row.addView(options,lp(-1,dp(32)).apply{topMargin=dp(7)})
-     queue.addView(row,lp(-1,-2).apply{topMargin=dp(7)})
+    }catch(_:Exception){}
+   }
+   if(!hasCover){
+    val cover=FrameLayout(this).apply{
+     background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(35,38,44));cornerRadius=dp(10).toFloat()}
+     val iv=ImageView(this@MainActivity).apply{setImageResource(R.drawable.ic_xpd_mark);imageTintList=android.content.res.ColorStateList.valueOf(silver);scaleType=ImageView.ScaleType.FIT_CENTER}
+     addView(iv,FrameLayout.LayoutParams(dp(34),dp(34),Gravity.CENTER))
+    }
+    top.addView(cover,lp(dp(62),dp(62)).apply{rightMargin=dp(11)})
+   }
+   val textCol=LinearLayout(this).apply{orientation=1}
+   val name=meta?.displayTitle?.takeIf{it.isNotBlank()}?:f.name
+   textCol.addView(label(name,14f,Color.WHITE).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;typeface=android.graphics.Typeface.create("sans-serif-medium",1)})
+   val titleId=meta?.titleId?.takeIf{it.isNotBlank()}?:meta?.contentId?.takeIf{it.isNotBlank()}?:"PS4 package"
+   textCol.addView(label(titleId,10f,muted).apply{setPadding(0,dp(4),0,0);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
+   textCol.addView(label("${sizeText(f.size)}  •  ${meta?.version?.takeIf{it.isNotBlank()}?: "PKG"}",10f,muted).apply{setPadding(0,dp(3),0,0);maxLines=1})
+   top.addView(textCol,LinearLayout.LayoutParams(0,-2,1f))
+   val options=ImageButton(this).apply{
+    setImageResource(R.drawable.ic_more);imageTintList=android.content.res.ColorStateList.valueOf(silver);setBackgroundColor(Color.TRANSPARENT);contentDescription="Package options"
+    setOnClickListener{
+     val popup=PopupMenu(this@MainActivity,this)
+     popup.menu.add("Move up").isEnabled=!busy&&index>0
+     popup.menu.add("Move down").isEnabled=!busy&&index<files.lastIndex
+     popup.menu.add("Remove package").isEnabled=!busy
+     popup.setOnMenuItemClickListener{item->when(item.title.toString()){
+      "Move up"->{if(!busy&&index>0){Collections.swap(files,index,index-1);refreshQueue();saveState()}}
+      "Move down"->{if(!busy&&index<files.lastIndex){Collections.swap(files,index,index+1);refreshQueue();saveState()}}
+      "Remove package"->{if(!busy){files.removeAll{it.id==f.id};retryEntries.removeAll{it.id==f.id};served.remove(f.id);refreshQueue();saveState()}}
+     };true}
+     popup.show()
+    }
+   }
+   top.addView(options,lp(dp(34),dp(38)))
+   row.addView(top)
+   val n=served[f.id]?:0L
+   val pct=if(f.size>0)(n*100/f.size).coerceIn(0L,100L).toInt()else 0
+   val progressLabel=label(if(n>0)"${sizeText(f.size)}  •  ${pct}% transferred" else "READY  •  ${sizeText(f.size)}",9f,muted).apply{setPadding(dp(2),dp(9),dp(2),0);maxLines=1}
+   row.addView(progressLabel);progressLabels[f.id]=progressLabel
+   val progress=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply{
+    max=100;this.progress=pct;progressTintList=android.content.res.ColorStateList.valueOf(silver);progressBackgroundTintList=android.content.res.ColorStateList.valueOf(Color.rgb(48,51,58));visibility=if(n>0)View.VISIBLE else View.GONE
+   }
+   row.addView(progress,lp(-1,dp(4)).apply{topMargin=dp(6)});progressViews[f.id]=progress
+   queue.addView(row,lp(-1,-2).apply{topMargin=dp(8)})
   }
-  send.text=if(retryEntries.isNotEmpty())"RETRY" else "SEND"
+  send.text=when{
+   retryEntries.isNotEmpty()->"RETRY FAILED (${retryEntries.size})"
+   files.isNotEmpty()->"SEND QUEUE (${files.size})"
+   else->"SEND QUEUE"
+  }
   send.setCompoundDrawablesWithIntrinsicBounds(if(retryEntries.isNotEmpty())R.drawable.ic_retry else R.drawable.ic_send,0,0,0)
   send.isEnabled=files.isNotEmpty()&&!busy&&TransferRuntime.server==null
   clear.isEnabled=!busy
