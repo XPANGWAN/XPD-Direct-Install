@@ -227,7 +227,7 @@ class MainActivity : Activity() {
    val found=ConsoleDiscovery.scan(this){message->runOnUiThread{status.text=message}}
    runOnUiThread{
     when{
-     found.isEmpty()->status.text="No receiver answered on ports 9090 or 12800. Enter the PS4 IP manually and tap TEST; make sure GoldHEN BinLoader or Remote Package Installer is running."
+     found.isEmpty()->status.text="No receiver answered on ports 9090, 9021, 9020 or 12800. Enter the PS4 IP manually and tap TEST; make sure GoldHEN BinLoader or Remote Package Installer is running."
      found.size==1->{ip.setText(found[0].address);port.setText(found[0].port.toString());status.text="Found ${found[0].service} at ${found[0].address}:${found[0].port}. Check the connection before sending."}
      else->{ip.setText(found[0].address);port.setText(found[0].port.toString());status.text="Found ${found.size} possible receivers. Selected ${found[0].address} (${found[0].service}); verify before sending."}
     }
@@ -238,7 +238,7 @@ class MainActivity : Activity() {
   val host=ip.text.toString().trim()
   if(!validIp(host)){status.text="Enter a valid PlayStation IPv4 address.";return}
   check.isEnabled=false;status.text="Checking GoldHEN BinLoader (9090/9021/9020) and RPI (12800)…"
-  Thread{val detected=detectReceiverPort(host);runOnUiThread{if(detected!=null){port.setText(detected.toString());status.text="Receiver detected on port $detected."}else status.text="No GoldHEN BinLoader (9090) or RPI (12800) receiver was detected.";check.isEnabled=true}}.start()
+  Thread{val detected=detectReceiverPort(host);runOnUiThread{if(detected!=null){port.setText(detected.toString());status.text="Receiver detected on port $detected."}else status.text="No GoldHEN BinLoader (9090/9021/9020) or RPI (12800) receiver was detected.";check.isEnabled=true}}.start()
  }
  private fun detectReceiverPort(host:String):Int?{
   for(candidate in intArrayOf(9090,9021,9020)){
