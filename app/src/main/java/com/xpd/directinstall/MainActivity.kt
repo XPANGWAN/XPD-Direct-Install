@@ -36,98 +36,90 @@ class MainActivity : Activity() {
  private fun buildUi(){
   val root=LinearLayout(this).apply{
    orientation=1
-   setPadding(dp(16),dp(8),dp(16),dp(12))
+   setPadding(dp(18),dp(8),dp(18),dp(12))
    setBackgroundColor(bg)
   }
-
-  // Upstream-inspired Android hierarchy: compact toolbar, console card,
-  // library header/list, primary send action and a dedicated status card.
   val toolbar=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
-  val mark=ImageView(this).apply{
-   setImageResource(R.drawable.ic_xpd_mark)
-   scaleType=ImageView.ScaleType.FIT_CENTER
-   contentDescription="XPD"
-  }
-  toolbar.addView(mark,lp(dp(34),dp(34)).apply{rightMargin=dp(10)})
+  val mark=ImageView(this).apply{setImageResource(R.drawable.ic_xpd_mark);scaleType=ImageView.ScaleType.FIT_CENTER;contentDescription="XPD"}
+  toolbar.addView(mark,lp(dp(38),dp(38)).apply{rightMargin=dp(11)})
   val brand=LinearLayout(this).apply{orientation=1}
-  brand.addView(label("XPD DIRECT INSTALL",18f,Color.WHITE).apply{
-   typeface=android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.BOLD)
-   letterSpacing=.015f
-  })
-  brand.addView(label("PLAYSTATION PACKAGE SENDER",9f,muted).apply{letterSpacing=.09f})
+  brand.addView(label("XPD",22f,Color.WHITE).apply{typeface=android.graphics.Typeface.create("sans-serif",android.graphics.Typeface.BOLD);letterSpacing=.04f})
+  brand.addView(label("DIRECT INSTALL  •  PS4",9f,muted).apply{letterSpacing=.10f})
   toolbar.addView(brand,LinearLayout.LayoutParams(0,-2,1f))
-  root.addView(toolbar,lp(-1,dp(44)).apply{bottomMargin=dp(10)})
+  val menu=ImageButton(this).apply{
+   setImageResource(R.drawable.ic_more);contentDescription="More options"
+   setBackgroundColor(Color.TRANSPARENT);imageTintList=android.content.res.ColorStateList.valueOf(silver)
+   setOnClickListener{val p=PopupMenu(this@MainActivity,this);p.menu.add("Clear library").setOnMenuItemClickListener{if(!busy){files.clear();retryEntries.clear();served.clear();refreshQueue();saveState()};true};p.menu.add("About XPD").setOnMenuItemClickListener{android.app.AlertDialog.Builder(this@MainActivity).setTitle("XPD Direct Install").setMessage("Send PlayStation 4 PKG files over your local network.").setPositiveButton("OK",null).show();true};p.show()}
+  }
+  toolbar.addView(menu,lp(dp(42),dp(42)))
+  root.addView(toolbar,lp(-1,dp(52)).apply{bottomMargin=dp(14)})
 
-  val connection=card()
+  val scroll=ScrollView(this).apply{clipToPadding=false;fillViewport=false;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS}
+  val content=LinearLayout(this).apply{orientation=1}
+  val connection=card().apply{setPadding(dp(16),dp(16),dp(16),dp(16))}
   val connectionHead=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
+  val connectionMark=ImageView(this).apply{setImageResource(R.drawable.ic_link);imageTintList=android.content.res.ColorStateList.valueOf(silver);contentDescription="Console connection"}
+  connectionHead.addView(connectionMark,lp(dp(34),dp(34)).apply{rightMargin=dp(12)})
   val connectionTitles=LinearLayout(this).apply{orientation=1}
-  connectionTitles.addView(label("PLAYSTATION",11f,silver).apply{typeface=android.graphics.Typeface.DEFAULT_BOLD;letterSpacing=.12f})
-  connectionTitles.addView(label("Connect your console",13f,Color.WHITE).apply{setPadding(0,dp(3),0,0)})
-  connectionHead.addView(connectionTitles,LinearLayout.LayoutParams(0,-2,1f));connection.addView(connectionHead)
+  connectionTitles.addView(label("PLAYSTATION 4",11f,silver).apply{typeface=android.graphics.Typeface.DEFAULT_BOLD;letterSpacing=.12f})
+  connectionTitles.addView(label("Connect your console",15f,Color.WHITE).apply{setPadding(0,dp(3),0,0);typeface=android.graphics.Typeface.create("sans-serif-medium",0)})
+  connectionHead.addView(connectionTitles,LinearLayout.LayoutParams(0,-2,1f))
+  connection.addView(connectionHead)
   ip=field("Console IP address",false).apply{inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS}
-  port=field("Auto",true).apply{setText("12800");visibility=View.GONE}
-  check=button("TEST",true){checkReceiver()}.apply{setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_link,0,0,0);compoundDrawablePadding=dp(5)}
+  port=field("Auto",true).apply{setText("9090");visibility=View.GONE}
+  check=button("TEST",true){checkReceiver()}.apply{textSize=12f}
   val addressRow=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
-  addressRow.addView(ip,LinearLayout.LayoutParams(0,dp(46),1f).apply{rightMargin=dp(8)})
-  addressRow.addView(check,lp(dp(76),dp(46)))
-  connection.addView(addressRow,lp(-1,-2).apply{topMargin=dp(12)})
-  connection.addView(button("FIND CONSOLE"){discoverConsole()}.apply{setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_search,0,0,0);compoundDrawablePadding=dp(6)},lp(-1,dp(40)).apply{topMargin=dp(8)})
-  root.addView(connection,lp(-1,-2).apply{bottomMargin=dp(14)})
+  addressRow.addView(ip,LinearLayout.LayoutParams(0,dp(50),1f).apply{rightMargin=dp(9)})
+  addressRow.addView(check,lp(dp(82),dp(50)))
+  connection.addView(addressRow,lp(-1,-2).apply{topMargin=dp(15)})
+  connection.addView(button("DETECT CONSOLE AUTOMATICALLY"){discoverConsole()}.apply{
+   textSize=12f;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_search,0,0,0);compoundDrawablePadding=dp(7)
+  },lp(-1,dp(46)).apply{topMargin=dp(10)})
+  status=label("Not connected  •  Enter your PS4 IP and tap TEST.",11f,muted).apply{maxLines=3}
+  connection.addView(status,lp(-1,-2).apply{topMargin=dp(12)})
+  content.addView(connection,lp(-1,-2).apply{bottomMargin=dp(14)})
 
+  val libraryCard=card().apply{setPadding(dp(15),dp(14),dp(15),dp(14))}
   val libraryHeader=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
   val libraryTitles=LinearLayout(this).apply{orientation=1}
-  libraryTitles.addView(label("LIBRARY",19f,Color.WHITE).apply{
-   typeface=android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.BOLD)
-  })
-  fileInfo=label("0 packages",10f,muted).apply{setPadding(0,dp(2),0,0)}
+  libraryTitles.addView(label("PKG LIBRARY",17f,Color.WHITE).apply{typeface=android.graphics.Typeface.create("sans-serif-medium",1)})
+  fileInfo=label("0 packages",10f,muted).apply{setPadding(0,dp(3),0,0)}
   libraryTitles.addView(fileInfo)
   libraryHeader.addView(libraryTitles,LinearLayout.LayoutParams(0,-2,1f))
-  clear=button("",false){if(!busy){files.clear();retryEntries.clear();served.clear();refreshQueue();saveState()}}.apply{contentDescription="Clear selected files";setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_trash,0,0,0)}
-  libraryHeader.addView(clear,lp(dp(42),dp(36)))
-  root.addView(libraryHeader,lp(-1,-2).apply{bottomMargin=dp(8)})
-
+  clear=button("CLEAR",false){if(!busy){files.clear();retryEntries.clear();served.clear();refreshQueue();saveState()}}.apply{textSize=10f}
+  libraryHeader.addView(clear,lp(dp(68),dp(36)))
+  libraryCard.addView(libraryHeader)
   val addRow=LinearLayout(this).apply{orientation=0;gravity=Gravity.CENTER_VERTICAL}
-  val add=button("ADD PKG FILES",true){chooseFiles()}.apply{
-   textSize=13f
-   setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder,0,0,0)
-   compoundDrawablePadding=dp(7)
-  }
-  addRow.addView(add,LinearLayout.LayoutParams(0,dp(48),1f).apply{rightMargin=dp(7)})
-  val scan=button("SCAN FOLDER"){chooseFolder()}.apply{
-   setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder_open,0,0,0)
-   compoundDrawablePadding=dp(5)
-  }
+  val add=button("ADD PKG FILES",true){chooseFiles()}.apply{textSize=12f;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder,0,0,0);compoundDrawablePadding=dp(6)}
+  addRow.addView(add,LinearLayout.LayoutParams(0,dp(48),1f).apply{rightMargin=dp(8)})
+  val scan=button("SCAN FOLDER"){chooseFolder()}.apply{textSize=11f;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder_open,0,0,0);compoundDrawablePadding=dp(5)}
   addRow.addView(scan,LinearLayout.LayoutParams(0,dp(48),1f))
-  root.addView(addRow)
-
-  queueSearch=field("Search games or Title ID",false).apply{
+  libraryCard.addView(addRow,lp(-1,-2).apply{topMargin=dp(13)})
+  queueSearch=field("Search packages or Title ID",false).apply{
    addTextChangedListener(object:android.text.TextWatcher{
     override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){}
     override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){refreshQueue()}
     override fun afterTextChanged(s:android.text.Editable?){}
    })
   }
-  root.addView(queueSearch,lp(-1,dp(42)).apply{topMargin=dp(8)})
-  val listScroll=ScrollView(this).apply{
-   clipToPadding=false;isFillViewport=false;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS
-  }
+  libraryCard.addView(queueSearch,lp(-1,dp(43)).apply{topMargin=dp(11)})
   queue=LinearLayout(this).apply{orientation=1}
-  queue.addView(label("No packages yet. Add PKG files to build your send queue.",11f,muted).apply{
-   setPadding(dp(2),dp(14),dp(2),dp(10));maxLines=2
-  })
-  listScroll.addView(queue)
-  root.addView(listScroll,LinearLayout.LayoutParams(-1,0,1f).apply{topMargin=dp(7)})
+  libraryCard.addView(queue,lp(-1,-2).apply{topMargin=dp(5)})
+  content.addView(libraryCard,lp(-1,-2).apply{bottomMargin=dp(14)})
 
-  send=button("SEND",true){sendFiles(retryEntries.isNotEmpty())}.apply{isEnabled=false;textSize=15f;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_send,0,0,0);compoundDrawablePadding=dp(8)}
-  root.addView(send,lp(-1,dp(54)).apply{topMargin=dp(10)})
-
-  status=label("Add PKG files, connect, then send.",11f,muted).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END}
-  root.addView(status,lp(-1,-2).apply{topMargin=dp(8)})
-  pauseButton=button("",false){togglePause()}.apply{contentDescription="Pause transfer";visibility=View.GONE;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_pause,0,0,0)}
-  root.addView(pauseButton,lp(dp(48),dp(42)).apply{gravity=Gravity.CENTER_HORIZONTAL;topMargin=dp(6)})
-  val copyright=label("© XPANGWAN  •  github.com/XPANGWAN",9f,muted).apply{gravity=Gravity.CENTER;setPadding(0,dp(8),0,0)}
-  copyright.setOnClickListener{try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/XPANGWAN/XPD-Direct-Install")))}catch(_:Exception){}}
-  root.addView(copyright,lp(-1,dp(28)))
+  scroll.addView(content)
+  root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
+  send=button("SEND QUEUE (0)",true){sendFiles(retryEntries.isNotEmpty())}.apply{
+   isEnabled=false;textSize=15f;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_send,0,0,0);compoundDrawablePadding=dp(8)
+  }
+  root.addView(send,lp(-1,dp(56)).apply{topMargin=dp(10)})
+  pauseButton=button("PAUSE",false){togglePause()}.apply{
+   contentDescription="Pause transfer";visibility=View.GONE;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_pause,0,0,0)
+  }
+  root.addView(pauseButton,lp(-1,dp(40)).apply{topMargin=dp(6)})
+  val footer=label("XPD  •  PLAYSTATION 4 PACKAGE SENDER",9f,muted).apply{gravity=Gravity.CENTER;setPadding(0,dp(8),0,0);letterSpacing=.07f}
+  footer.setOnClickListener{try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/XPANGWAN/XPD-Direct-Install")))}catch(_:Exception){}}
+  root.addView(footer,lp(-1,dp(25)))
   setContentView(root)
  }
  private fun prefs()=getSharedPreferences("xpd_direct_install",MODE_PRIVATE)
